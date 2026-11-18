@@ -449,24 +449,6 @@ function initPromptControls() {
       }
     });
   }
-
-  // Thinking Toggle
-  if (thinkToggleBtn) {
-    thinkToggleBtn.addEventListener('click', () => {
-      playSound('click');
-      state.deepThinkingEnabled = !state.deepThinkingEnabled;
-      thinkToggleBtn.classList.toggle('active', state.deepThinkingEnabled);
-    });
-  }
-
-  // Search Toggle
-  if (searchToggleBtn) {
-    searchToggleBtn.addEventListener('click', () => {
-      playSound('click');
-      state.webSearchEnabled = !state.webSearchEnabled;
-      searchToggleBtn.classList.toggle('active', state.webSearchEnabled);
-    });
-  }
 }
 
 function addAttachment(fileName) {
@@ -817,7 +799,7 @@ if __name__ == "__main__":
   streamLocalText(fullResponse, placeholder);
 }
 
-// --- Model Selector Dropdown (Top Header & Chat Input Dock) ---
+// --- Chat Input Dock Tools (Model, Deep Think, and Search Popovers) ---
 function setModel(name) {
   state.currentModel = name;
   let shortName = 'Veccna 2.5 Pro';
@@ -832,22 +814,90 @@ function setModel(name) {
     o.classList.toggle('active-model', o.getAttribute('data-model') === name);
   });
 
-  document.querySelectorAll('.chat-popover-opt').forEach(o => {
+  document.querySelectorAll('#chatModelPopoverMenu .chat-popover-opt').forEach(o => {
     o.classList.toggle('active', o.getAttribute('data-model') === name);
   });
 }
 
-function initModelSelector() {
+function setThinkingMode(mode) {
+  state.thinkingMode = mode;
+  state.deepThinkingEnabled = mode !== 'off';
+
+  const pillBtn = document.getElementById('chatThinkPillBtn');
+  const pillLabel = document.getElementById('chatThinkPillLabel');
+  const thinkToggle = document.getElementById('settingThinkToggle');
+
+  if (pillBtn) {
+    pillBtn.classList.toggle('active', state.deepThinkingEnabled);
+  }
+
+  if (pillLabel) {
+    if (mode === 'extended') pillLabel.innerText = 'Deep Think';
+    else if (mode === 'standard') pillLabel.innerText = 'Standard Think';
+    else pillLabel.innerText = 'Think Off';
+  }
+
+  if (thinkToggle) {
+    thinkToggle.checked = state.deepThinkingEnabled;
+  }
+
+  document.querySelectorAll('#chatThinkPopoverMenu .chat-popover-opt').forEach(o => {
+    o.classList.toggle('active', o.getAttribute('data-think-mode') === mode);
+  });
+}
+
+function setSearchMode(mode) {
+  state.searchMode = mode;
+  state.webSearchEnabled = mode !== 'off';
+
+  const pillBtn = document.getElementById('chatSearchPillBtn');
+  const pillLabel = document.getElementById('chatSearchPillLabel');
+  const searchToggle = document.getElementById('settingSearchToggle');
+
+  if (pillBtn) {
+    pillBtn.classList.toggle('active', state.webSearchEnabled);
+  }
+
+  if (pillLabel) {
+    if (mode === 'auto') pillLabel.innerText = 'Live Search';
+    else if (mode === 'deep') pillLabel.innerText = 'Deep Search';
+    else pillLabel.innerText = 'Search Off';
+  }
+
+  if (searchToggle) {
+    searchToggle.checked = state.webSearchEnabled;
+  }
+
+  document.querySelectorAll('#chatSearchPopoverMenu .chat-popover-opt').forEach(o => {
+    o.classList.toggle('active', o.getAttribute('data-search-mode') === mode);
+  });
+}
+
+function initChatDockTools() {
   const chatModelPillBtn = document.getElementById('chatModelPillBtn');
   const chatModelPopoverMenu = document.getElementById('chatModelPopoverMenu');
+
+  const chatThinkPillBtn = document.getElementById('chatThinkPillBtn');
+  const chatThinkPopoverMenu = document.getElementById('chatThinkPopoverMenu');
+
+  const chatSearchPillBtn = document.getElementById('chatSearchPillBtn');
+  const chatSearchPopoverMenu = document.getElementById('chatSearchPopoverMenu');
+
+  function closeAllMenus() {
+    if (modelDropdown) modelDropdown.classList.remove('open');
+    if (chatModelPopoverMenu) chatModelPopoverMenu.classList.remove('open');
+    if (chatThinkPopoverMenu) chatThinkPopoverMenu.classList.remove('open');
+    if (chatSearchPopoverMenu) chatSearchPopoverMenu.classList.remove('open');
+  }
 
   // Top Header Model Selector
   if (modelSelector && modelDropdown) {
     modelSelector.addEventListener('click', (e) => {
       e.stopPropagation();
       playSound('click');
-      modelDropdown.classList.toggle('open');
-      if (chatModelPopoverMenu) chatModelPopoverMenu.classList.remove('open');
+      const isOpen = modelDropdown.classList.contains('open');
+      closeAllMenus();
+      if (!isOpen) modelDropdown.classList.add('open');
     });
 
     document.querySelectorAll('.model-option').forEach(opt => {
@@ -856,35 +906,77 @@ function initModelSelector() {
         playSound('click');
         const name = opt.getAttribute('data-model');
         setModel(name);
-        modelDropdown.classList.remove('open');
+        closeAllMenus();
       });
     });
   }
 
-  // Chat Input Dock Model Selector Beside Upload
+  // 1. Chat Model Popover
   if (chatModelPillBtn && chatModelPopoverMenu) {
     chatModelPillBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       playSound('click');
-      chatModelPopoverMenu.classList.toggle('open');
-      if (modelDropdown) modelDropdown.classList.remove('open');
+      const isOpen = chatModelPopoverMenu.classList.contains('open');
+      closeAllMenus();
+      if (!isOpen) chatModelPopoverMenu.classList.add('open');
     });
 
-    document.querySelectorAll('.chat-popover-opt').forEach(opt => {
+    document.querySelectorAll('#chatModelPopoverMenu .chat-popover-opt').forEach(opt => {
       opt.addEventListener('click', (e) => {
         e.stopPropagation();
         playSound('click');
         const name = opt.getAttribute('data-model');
         setModel(name);
-        chatModelPopoverMenu.classList.remove('open');
+        closeAllMenus();
       });
     });
   }
 
-  // Close dropdowns on outside click
+  // 2. Chat Deep Think Popover
+  if (chatThinkPillBtn && chatThinkPopoverMenu) {
+    chatThinkPillBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      playSound('click');
+      const isOpen = chatThinkPopoverMenu.classList.contains('open');
+      closeAllMenus();
+      if (!isOpen) chatThinkPopoverMenu.classList.add('open');
+    });
+
+    document.querySelectorAll('#chatThinkPopoverMenu .chat-popover-opt').forEach(opt => {
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        playSound('click');
+        const mode = opt.getAttribute('data-think-mode');
+        setThinkingMode(mode);
+        closeAllMenus();
+      });
+    });
+  }
+
+  // 3. Chat Search Popover
+  if (chatSearchPillBtn && chatSearchPopoverMenu) {
+    chatSearchPillBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      playSound('click');
+      const isOpen = chatSearchPopoverMenu.classList.contains('open');
+      closeAllMenus();
+      if (!isOpen) chatSearchPopoverMenu.classList.add('open');
+    });
+
+    document.querySelectorAll('#chatSearchPopoverMenu .chat-popover-opt').forEach(opt => {
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        playSound('click');
+        const mode = opt.getAttribute('data-search-mode');
+        setSearchMode(mode);
+        closeAllMenus();
+      });
+    });
+  }
+
+  // Global Outside Click
   document.addEventListener('click', () => {
-    if (modelDropdown) modelDropdown.classList.remove('open');
-    if (chatModelPopoverMenu) chatModelPopoverMenu.classList.remove('open');
+    closeAllMenus();
   });
 }
 
@@ -1175,16 +1267,12 @@ window.toggleSoundSetting = function(enabled) {
 };
 
 window.toggleThinkingSetting = function(enabled) {
-  state.deepThinkingEnabled = enabled;
-  const btn = document.getElementById('thinkToggleBtn');
-  if (btn) btn.classList.toggle('active', enabled);
+  setThinkingMode(enabled ? 'extended' : 'off');
   showToast(`Deep thinking ${enabled ? 'enabled' : 'disabled'} by default`, 'info');
 };
 
 window.toggleSearchSetting = function(enabled) {
-  state.webSearchEnabled = enabled;
-  const btn = document.getElementById('searchToggleBtn');
-  if (btn) btn.classList.toggle('active', enabled);
+  setSearchMode(enabled ? 'auto' : 'off');
   showToast(`Web grounding ${enabled ? 'enabled' : 'disabled'} by default`, 'info');
 };
 
@@ -1213,7 +1301,7 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('DOMContentLoaded', () => {
   initSidebar();
   initPromptControls();
-  initModelSelector();
+  initChatDockTools();
   initAuth();
   renderActiveChat();
 });

@@ -315,15 +315,87 @@
                   </div>
                 </div>
 
-                <button class="tool-pill-btn active" id="thinkToggleBtn" title="Toggle Deep Reasoning">
-                  <i class="fas fa-brain"></i>
-                  <span>Deep Think</span>
-                </button>
+                <!-- Deep Think Menu Option -->
+                <div class="chat-model-menu-wrapper" id="chatThinkMenuWrapper">
+                  <button type="button" class="tool-pill-btn active" id="chatThinkPillBtn" title="Deep Reasoning Mode">
+                    <i class="fas fa-brain" style="color: #a855f7;"></i>
+                    <span id="chatThinkPillLabel">Deep Think</span>
+                    <i class="fas fa-chevron-down" style="font-size: 0.62rem; color: var(--text-dim); margin-left: 2px;"></i>
+                  </button>
 
-                <button class="tool-pill-btn active" id="searchToggleBtn" title="Toggle Web Grounding">
-                  <i class="fas fa-globe"></i>
-                  <span>Search</span>
-                </button>
+                  <div class="chat-model-popover-menu" id="chatThinkPopoverMenu">
+                    <div class="chat-popover-opt active" data-think-mode="extended">
+                      <div class="popover-opt-content">
+                        <div class="popover-opt-title">
+                          <span>Extended Reasoning</span>
+                          <span class="model-badge-tag" style="background: rgba(168, 85, 247, 0.15); color: #c084fc;">High Budget</span>
+                        </div>
+                        <div class="popover-opt-sub">Multi-step deep thinking for code, math & logic</div>
+                      </div>
+                    </div>
+
+                    <div class="chat-popover-opt" data-think-mode="standard">
+                      <div class="popover-opt-content">
+                        <div class="popover-opt-title">
+                          <span>Standard Reasoning</span>
+                          <span class="model-badge-tag" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">Balanced</span>
+                        </div>
+                        <div class="popover-opt-sub">Moderate thinking chain for everyday tasks</div>
+                      </div>
+                    </div>
+
+                    <div class="chat-popover-opt" data-think-mode="off">
+                      <div class="popover-opt-content">
+                        <div class="popover-opt-title">
+                          <span>Thinking Off</span>
+                          <span class="model-badge-tag" style="background: rgba(148, 163, 184, 0.15); color: var(--text-muted);">Direct</span>
+                        </div>
+                        <div class="popover-opt-sub">Instant answers without reasoning steps</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Web Search Menu Option -->
+                <div class="chat-model-menu-wrapper" id="chatSearchMenuWrapper">
+                  <button type="button" class="tool-pill-btn active" id="chatSearchPillBtn" title="Web Grounding Mode">
+                    <i class="fas fa-globe" style="color: var(--sky-bright);"></i>
+                    <span id="chatSearchPillLabel">Live Search</span>
+                    <i class="fas fa-chevron-down" style="font-size: 0.62rem; color: var(--text-dim); margin-left: 2px;"></i>
+                  </button>
+
+                  <div class="chat-model-popover-menu" id="chatSearchPopoverMenu">
+                    <div class="chat-popover-opt active" data-search-mode="auto">
+                      <div class="popover-opt-content">
+                        <div class="popover-opt-title">
+                          <span>Auto Web Grounding</span>
+                          <span class="model-badge-tag" style="background: rgba(16, 185, 129, 0.15); color: #34d399;">Auto</span>
+                        </div>
+                        <div class="popover-opt-sub">Searches the web automatically for real-time facts</div>
+                      </div>
+                    </div>
+
+                    <div class="chat-popover-opt" data-search-mode="deep">
+                      <div class="popover-opt-content">
+                        <div class="popover-opt-title">
+                          <span>Deep Research</span>
+                          <span class="model-badge-tag" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">Deep</span>
+                        </div>
+                        <div class="popover-opt-sub">Exhaustive multi-source search across latest web</div>
+                      </div>
+                    </div>
+
+                    <div class="chat-popover-opt" data-search-mode="off">
+                      <div class="popover-opt-content">
+                        <div class="popover-opt-title">
+                          <span>Search Off</span>
+                          <span class="model-badge-tag" style="background: rgba(148, 163, 184, 0.15); color: var(--text-muted);">Offline</span>
+                        </div>
+                        <div class="popover-opt-sub">Answers solely from model's core intelligence</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div class="input-actions-right">
