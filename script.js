@@ -193,7 +193,7 @@ const thinkToggleBtn = document.getElementById('thinkToggleBtn');
 const searchToggleBtn = document.getElementById('searchToggleBtn');
 const modelModal = document.getElementById('modelModal');
 
-// --- Markdown & Code Formatter ---
+// --- Markdown, LaTeX & Code Formatter ---
 function formatMarkdown(text) {
   if (!text) return '';
 
@@ -203,6 +203,27 @@ function formatMarkdown(text) {
     .replace(/```[a-z]*\s*def greet\(name\):[\s\S]*?```/gi, '')
     .replace(/def greet\(name\):[\s\S]*?print\(greet\([^)]*\)\)/gi, '')
     .replace(/💡\s*Quick Example/gi, '');
+
+  // Render LaTeX math formulas if KaTeX is loaded
+  if (typeof window !== 'undefined' && window.katex) {
+    // Display Math: $$ ... $$
+    cleanText = cleanText.replace(/\$\$([\s\S]+?)\$\$/g, (match, formula) => {
+      try {
+        return window.katex.renderToString(formula.trim(), { displayMode: true, throwOnError: false });
+      } catch (e) {
+        return match;
+      }
+    });
+
+    // Inline Math: $ ... $
+    cleanText = cleanText.replace(/\$([^\$\n]+?)\$/g, (match, formula) => {
+      try {
+        return window.katex.renderToString(formula.trim(), { displayMode: false, throwOnError: false });
+      } catch (e) {
+        return match;
+      }
+    });
+  }
 
   try {
     return marked.parse(cleanText);
@@ -245,9 +266,55 @@ function renderChatHistory() {
     <div class="chat-history-item ${chat.id === state.activeChatId ? 'active' : ''}" onclick="selectChat('${chat.id}')" title="${chat.title}">
       <i class="far fa-message"></i>
       <span class="chat-title-text">${chat.title}</span>
+      <div class="chat-item-actions">
+        <button class="chat-item-btn" onclick="renameChatPrompt('${chat.id}', event)" title="Rename conversation">
+          <i class="far fa-pen-to-square"></i>
+        </button>
+        <button class="chat-item-btn delete-btn" onclick="deleteChatPrompt('${chat.id}', event)" title="Delete conversation">
+          <i class="far fa-trash-can"></i>
+        </button>
+      </div>
     </div>
   `).join('');
 }
+
+window.renameChatPrompt = function(chatId, e) {
+  if (e) e.stopPropagation();
+  playSound('click');
+  const chat = state.chats.find(c => c.id === chatId);
+  if (!chat) return;
+  const newTitle = prompt('Rename conversation:', chat.title);
+  if (newTitle && newTitle.trim()) {
+    chat.title = newTitle.trim();
+    renderChatHistory();
+    showToast('Conversation renamed.', 'success');
+  }
+};
+
+window.deleteChatPrompt = function(chatId, e) {
+  if (e) e.stopPropagation();
+  playSound('click');
+  if (state.chats.length <= 1) {
+    const chat = state.chats[0];
+    chat.title = 'New conversation';
+    chat.messages = [];
+    renderChatHistory();
+    renderActiveChat();
+    showToast('Chat cleared.', 'info');
+    return;
+  }
+
+  const idx = state.chats.findIndex(c => c.id === chatId);
+  if (idx !== -1) {
+    state.chats.splice(idx, 1);
+    if (state.activeChatId === chatId) {
+      state.activeChatId = state.chats[0].id;
+    }
+    renderChatHistory();
+    renderActiveChat();
+    showToast('Conversation deleted.', 'info');
+  }
+};
 
 window.selectChat = function(chatId) {
   playSound('click');
@@ -293,11 +360,29 @@ function renderMessageRow(msg) {
   msg.id = msgId;
 
   if (msg.role === 'user') {
+    const attachmentsHtml = msg.attachments && msg.attachments.length > 0 ? `
+      <div class="message-attachments-container">
+        ${msg.attachments.map(a => a.isImage && a.dataUrl ? `
+          <img src="${a.dataUrl}" class="msg-attachment-img" alt="${a.name}" onclick="window.open('${a.dataUrl}')">
+        ` : `
+          <div class="msg-attachment-file">
+            <i class="far fa-file-lines"></i>
+            <span>${a.name}</span>
+          </div>
+        `).join('')}
+      </div>
+    ` : '';
+
     return `
       <div class="message-row user-row" id="${msgId}">
-        <div class="message-avatar user-avatar-icon">AV</div>
+        <div class="message-avatar user-avatar-icon">${state.user.initials || 'AV'}</div>
         <div class="message-body">
+          ${attachmentsHtml}
           <div class="message-content">${formatMarkdown(msg.text)}</div>
+          <div class="user-msg-actions">
+            <button class="msg-act-btn" onclick="editUserPrompt('${msgId}')" title="Edit Prompt"><i class="far fa-pen-to-square"></i></button>
+            <button class="msg-act-btn" onclick="copyMessageText(this)" title="Copy Prompt"><i class="far fa-copy"></i></button>
+          </div>
         </div>
       </div>
     `;
@@ -357,9 +442,10 @@ function renderMessageRow(msg) {
 
           <div class="message-actions">
             <button class="msg-act-btn" onclick="copyMessageText(this)" title="Copy Response"><i class="far fa-copy"></i></button>
-            <button class="msg-act-btn" title="Good Response"><i class="far fa-thumbs-up"></i></button>
-            <button class="msg-act-btn" title="Bad Response"><i class="far fa-thumbs-down"></i></button>
-            <button class="msg-act-btn" title="Share"><i class="fas fa-share-nodes"></i></button>
+            <button class="msg-act-btn" onclick="toggleFeedback(this, 'like')" title="Good Response"><i class="far fa-thumbs-up"></i></button>
+            <button class="msg-act-btn" onclick="toggleFeedback(this, 'dislike')" title="Bad Response"><i class="far fa-thumbs-down"></i></button>
+            <button class="msg-act-btn" onclick="regenerateLastResponse()" title="Regenerate Response"><i class="fas fa-rotate-right"></i></button>
+            <button class="msg-act-btn" onclick="openShareModal()" title="Share / Export Chat"><i class="fas fa-share-nodes"></i></button>
           </div>
         </div>
       </div>
@@ -388,10 +474,46 @@ window.copyMessageText = function(btn) {
   }
 };
 
+let activeAbortController = null;
+
+function setGeneratingUI(isGen) {
+  state.isGenerating = isGen;
+  if (isGen) {
+    sendPromptBtn.innerHTML = '<i class="fas fa-stop"></i>';
+    sendPromptBtn.classList.add('generating');
+    sendPromptBtn.classList.add('ready');
+    sendPromptBtn.title = 'Stop generating (Cancel)';
+  } else {
+    sendPromptBtn.innerHTML = '<i class="fas fa-arrow-up"></i>';
+    sendPromptBtn.classList.remove('generating');
+    if (promptInput && promptInput.value.trim().length === 0 && state.pendingAttachments.length === 0) {
+      sendPromptBtn.classList.remove('ready');
+    }
+    sendPromptBtn.title = 'Send Prompt';
+    activeAbortController = null;
+  }
+}
+
+window.stopGenerating = function() {
+  if (activeAbortController) {
+    activeAbortController.abort();
+    activeAbortController = null;
+  }
+  setGeneratingUI(false);
+  showToast('Response generation stopped.', 'info');
+};
+
 function scrollToBottom() {
   setTimeout(() => {
     chatScrollView.scrollTop = chatScrollView.scrollHeight;
-  }, 50);
+  }, 30);
+}
+
+function maybeAutoScroll() {
+  const distFromBottom = chatScrollView.scrollHeight - chatScrollView.scrollTop - chatScrollView.clientHeight;
+  if (distFromBottom < 160) {
+    chatScrollView.scrollTop = chatScrollView.scrollHeight;
+  }
 }
 
 // --- Prompt Submission & AI Simulation ---
@@ -400,9 +522,9 @@ function initPromptControls() {
   promptInput.addEventListener('input', () => {
     promptInput.style.height = 'auto';
     promptInput.style.height = Math.min(promptInput.scrollHeight, 180) + 'px';
-    if (promptInput.value.trim().length > 0) {
+    if (promptInput.value.trim().length > 0 || state.pendingAttachments.length > 0) {
       sendPromptBtn.classList.add('ready');
-    } else {
+    } else if (!state.isGenerating) {
       sendPromptBtn.classList.remove('ready');
     }
   });
@@ -416,7 +538,11 @@ function initPromptControls() {
   });
 
   sendPromptBtn.addEventListener('click', () => {
-    handleSendPrompt();
+    if (state.isGenerating) {
+      window.stopGenerating();
+    } else {
+      handleSendPrompt();
+    }
   });
 
   // Suggestion Cards in Welcome Hero
@@ -439,22 +565,60 @@ function initPromptControls() {
 
     fileInput.addEventListener('change', (e) => {
       if (e.target.files.length > 0) {
-        playSound('click');
-        const file = e.target.files[0];
-        addAttachment(file.name);
+        for (const file of e.target.files) {
+          processUploadedFile(file);
+        }
+        fileInput.value = '';
       }
     });
   }
+
+  initSpeechRecognition();
+  initDragAndDrop();
+  initScrollToBottom();
 }
 
-function addAttachment(fileName) {
-  state.pendingAttachments.push(fileName);
-  renderAttachments();
+function processUploadedFile(file) {
+  playSound('click');
+  const isImage = file.type.startsWith('image/');
+  const reader = new FileReader();
+
+  if (isImage) {
+    reader.onload = (e) => {
+      state.pendingAttachments.push({
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        dataUrl: e.target.result,
+        isImage: true
+      });
+      renderAttachments();
+      sendPromptBtn.classList.add('ready');
+    };
+    reader.readAsDataURL(file);
+  } else {
+    reader.onload = (e) => {
+      state.pendingAttachments.push({
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        dataUrl: null,
+        textContent: typeof e.target.result === 'string' ? e.target.result : '',
+        isImage: false
+      });
+      renderAttachments();
+      sendPromptBtn.classList.add('ready');
+    };
+    reader.readAsText(file);
+  }
 }
 
 window.removeAttachment = function(index) {
   state.pendingAttachments.splice(index, 1);
   renderAttachments();
+  if (state.pendingAttachments.length === 0 && (!promptInput.value || promptInput.value.trim().length === 0)) {
+    sendPromptBtn.classList.remove('ready');
+  }
 };
 
 function renderAttachments() {
@@ -464,317 +628,278 @@ function renderAttachments() {
   }
   attachmentPreview.innerHTML = state.pendingAttachments.map((f, i) => `
     <div class="attachment-chip">
-      <i class="far fa-file-lines"></i>
-      <span>${f}</span>
+      ${f.isImage && f.dataUrl ? `<img src="${f.dataUrl}" style="width: 20px; height: 20px; border-radius: 4px; object-fit: cover;">` : '<i class="far fa-file-lines"></i>'}
+      <span>${f.name}</span>
       <i class="fas fa-times remove-chip" onclick="removeAttachment(${i})"></i>
     </div>
   `).join('');
 }
 
-function handleSendPrompt() {
-  const query = promptInput.value.trim();
-  if (!query || state.isGenerating) return;
+// --- Voice Recognition (Web Speech API) ---
+let speechRecognition = null;
+let isListening = false;
+function initSpeechRecognition() {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const voiceBtn = document.getElementById('voiceInputBtn');
+  if (!voiceBtn) return;
 
-  playSound('send');
-  state.isGenerating = true;
-
-  // Retrieve or create chat
-  let chat = state.chats.find(c => c.id === state.activeChatId);
-  if (!chat) {
-    createNewChat();
-    chat = state.chats[0];
+  if (!SpeechRec) {
+    voiceBtn.addEventListener('click', () => {
+      showToast('Speech recognition is not supported in this browser.', 'error');
+    });
+    return;
   }
 
-  // Update chat title if first message
-  if (chat.messages.length === 0) {
-    chat.title = query.length > 32 ? query.substring(0, 32) + '...' : query;
-    renderChatHistory();
-  }
+  speechRecognition = new SpeechRec();
+  speechRecognition.continuous = false;
+  speechRecognition.interimResults = true;
+  speechRecognition.lang = 'en-US';
 
-  // Add User Message
-  chat.messages.push({
-    role: 'user',
-    text: query
+  speechRecognition.onstart = () => {
+    isListening = true;
+    voiceBtn.classList.add('listening');
+    voiceBtn.title = 'Listening... Speak your prompt';
+    playSound('send');
+    showToast('Voice mode active: listening...', 'info');
+  };
+
+  speechRecognition.onresult = (event) => {
+    let transcript = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      transcript += event.results[i][0].transcript;
+    }
+    if (transcript.trim()) {
+      promptInput.value = transcript;
+      promptInput.dispatchEvent(new Event('input'));
+    }
+  };
+
+  speechRecognition.onerror = (e) => {
+    isListening = false;
+    voiceBtn.classList.remove('listening');
+    voiceBtn.title = 'Voice Input (Speech-to-Text)';
+    if (e.error !== 'no-speech') {
+      showToast(`Microphone issue: ${e.error}`, 'error');
+    }
+  };
+
+  speechRecognition.onend = () => {
+    isListening = false;
+    voiceBtn.classList.remove('listening');
+    voiceBtn.title = 'Voice Input (Speech-to-Text)';
+  };
+
+  voiceBtn.addEventListener('click', () => {
+    if (isListening) {
+      speechRecognition.stop();
+    } else {
+      try {
+        speechRecognition.start();
+      } catch (err) {
+        console.warn('Speech rec start error:', err);
+      }
+    }
+  });
+}
+
+// --- Drag & Drop Files ---
+function initDragAndDrop() {
+  const overlay = document.getElementById('dragDropOverlay');
+  let dragCounter = 0;
+
+  window.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    dragCounter++;
+    if (overlay) overlay.classList.add('active');
   });
 
-  // Clear inputs
-  promptInput.value = '';
-  promptInput.style.height = 'auto';
-  sendPromptBtn.classList.remove('ready');
-  state.pendingAttachments = [];
-  renderAttachments();
+  window.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dragCounter--;
+    if (dragCounter <= 0 && overlay) {
+      dragCounter = 0;
+      overlay.classList.remove('active');
+    }
+  });
 
-  // Re-render UI
-  renderActiveChat();
+  window.addEventListener('dragover', (e) => {
+    e.preventDefault();
+  });
 
-  // Create Streaming Placeholder
+  window.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragCounter = 0;
+    if (overlay) overlay.classList.remove('active');
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      for (const file of e.dataTransfer.files) {
+        processUploadedFile(file);
+      }
+    }
+  });
+}
+
+// --- Floating Scroll to Bottom ---
+function initScrollToBottom() {
+  const btn = document.getElementById('scrollBottomBtn');
+  if (!btn || !chatScrollView) return;
+
+  chatScrollView.addEventListener('scroll', () => {
+    const distFromBottom = chatScrollView.scrollHeight - chatScrollView.scrollTop - chatScrollView.clientHeight;
+    if (distFromBottom > 160) {
+      btn.classList.add('visible');
+    } else {
+      btn.classList.remove('visible');
+    }
+  });
+
+  btn.addEventListener('click', () => {
+    playSound('click');
+    chatScrollView.scrollTo({
+      top: chatScrollView.scrollHeight,
+      behavior: 'smooth'
+    });
+  });
+}
+
+// --- Edit User Prompt ---
+window.editUserPrompt = function(msgId) {
+  playSound('click');
+  const chat = state.chats.find(c => c.id === state.activeChatId);
+  if (!chat) return;
+  const msg = chat.messages.find(m => m.id === msgId);
+  if (msg && promptInput) {
+    promptInput.value = msg.text || '';
+    promptInput.dispatchEvent(new Event('input'));
+    promptInput.focus();
+    showToast('Prompt loaded into editor.', 'info');
+  }
+};
+
+// --- Feedback (Thumbs Up / Down) ---
+window.toggleFeedback = function(btn, type) {
+  playSound('click');
+  const isLike = type === 'like';
+  const actions = btn.closest('.message-actions');
+  const likeBtn = actions ? actions.querySelector('.fa-thumbs-up')?.closest('.msg-act-btn') : null;
+  const dislikeBtn = actions ? actions.querySelector('.fa-thumbs-down')?.closest('.msg-act-btn') : null;
+
+  if (isLike) {
+    if (btn.classList.contains('active-like')) {
+      btn.classList.remove('active-like');
+    } else {
+      btn.classList.add('active-like');
+      if (dislikeBtn) dislikeBtn.classList.remove('active-dislike');
+      showToast('Thank you for your feedback!', 'success');
+    }
+  } else {
+    if (btn.classList.contains('active-dislike')) {
+      btn.classList.remove('active-dislike');
+    } else {
+      btn.classList.add('active-dislike');
+      if (likeBtn) likeBtn.classList.remove('active-like');
+      showToast('Feedback recorded. We will refine our model.', 'info');
+    }
+  }
+};
+
+// --- Regenerate Last Response ---
+window.regenerateLastResponse = function() {
+  if (state.isGenerating) return;
+  const chat = state.chats.find(c => c.id === state.activeChatId);
+  if (!chat || chat.messages.length < 2) return;
+
+  // Find last user message
+  let lastUserMsgIndex = -1;
+  for (let i = chat.messages.length - 1; i >= 0; i--) {
+    if (chat.messages[i].role === 'user') {
+      lastUserMsgIndex = i;
+      break;
+    }
+  }
+  if (lastUserMsgIndex === -1) return;
+
+  const lastUserMsg = chat.messages[lastUserMsgIndex];
+  // Remove following messages
+  chat.messages = chat.messages.slice(0, lastUserMsgIndex + 1);
+
+  // New placeholder
   const msgId = `msg-${Date.now()}`;
   const aiMessagePlaceholder = {
     id: msgId,
     role: 'model',
-    thinking: state.deepThinkingEnabled ? `Analyzing query, evaluating cognitive context...` : null,
+    thinking: state.deepThinkingEnabled ? 'Re-evaluating context & synthesizing alternative perspective...' : null,
     isThinking: state.deepThinkingEnabled,
-    isOpen: false, // Unexpanded by default
+    isOpen: false,
     text: ''
   };
   chat.messages.push(aiMessagePlaceholder);
   renderActiveChat();
 
-  // Generate intelligent response via live OpenRouter API
-  generateAiResponse(query, aiMessagePlaceholder, chat);
-}
+  setGeneratingUI(true);
+  generateAiResponse(lastUserMsg.text, aiMessagePlaceholder, chat);
+};
 
-function isAskingAboutBotCreators(query) {
-  const q = query.toLowerCase().trim();
-  return (
-    /\b(who\s+(created|made|built|developed|trained|engineered)\s+(you|veccna))\b/i.test(q) ||
-    /\b(who\s+are\s+(your|the)\s+(creators|developers|founders|engineers|authors))\b/i.test(q) ||
-    /\b(your\s+(creators|founders|engineering team|developers))\b/i.test(q) ||
-    /\b(who\s+is\s+your\s+(creator|developer|author|maker))\b/i.test(q) ||
-    /\b(tell\s+me\s+about\s+(the\s+)?(creators|founders|team)\s+(of\s+veccna|behind\s+veccna))\b/i.test(q) ||
-    /\b(who\s+trained\s+veccna)\b/i.test(q)
-  );
-}
+// --- Share & Export Modals ---
+window.openShareModal = function() {
+  playSound('click');
+  const modal = document.getElementById('shareModal');
+  const input = document.getElementById('shareUrlInput');
+  if (input) input.value = `${window.location.origin}/#share-${state.activeChatId}`;
+  if (modal) modal.classList.add('open');
+};
 
-async function generateAiResponse(query, placeholder, chat) {
-  // Dual-Layer Attribution: Disclose training credits ONLY if explicitly asked about Veccna creators
-  if (isAskingAboutBotCreators(query)) {
-    placeholder.thinking = state.deepThinkingEnabled ? 'Retrieving neural model lineage & engineering provenance records...' : null;
-    const fullResponse = `**Veccna AI** was trained and engineered by the founding team:\n\n### 👥 Core Engineering Team:\n* **Amay Vikram Singh:** Founding Research & Neural Architecture Lead\n* **Anshuman:** Lead Distributed Systems & High-Velocity Telemetry Pipeline\n* **Ankit:** Lead Behavioral AI & Knowledge Graph Specialist\n* **Aaryan:** Lead Adversary Emulation & Autonomous Response Engine\n\n### ⚡ Foundation Specifications:\n* **Model Engine:** Veccna Synapse-X Transformer (17.4 Billion Parameters).\n* **Architecture:** Multi-Stage Attention with Low-Rank Adaptation & Direct Preference Optimization (DPO).\n* **Design Language:** Ergonomic Dark Slate (\`#09090B\`, \`#0F172A\`) to prevent ocular fatigue.`;
-    streamLocalText(fullResponse, placeholder);
+window.closeShareModal = function() {
+  playSound('click');
+  const modal = document.getElementById('shareModal');
+  if (modal) modal.classList.remove('open');
+};
+
+window.copyShareLink = function() {
+  const input = document.getElementById('shareUrlInput');
+  if (input) {
+    navigator.clipboard.writeText(input.value).then(() => {
+      showToast('Share link copied to clipboard!', 'success');
+      playSound('click');
+    });
+  }
+};
+
+window.exportChatMarkdown = function() {
+  const chat = state.chats.find(c => c.id === state.activeChatId);
+  if (!chat || chat.messages.length === 0) {
+    showToast('No messages to export.', 'info');
     return;
   }
-
-  let apiKey = state.openRouterKey || DEFAULT_OPENROUTER_KEY;
-  const requestedModel = MODEL_MAPPING[state.currentModel] || 'openrouter/free';
-
-  const systemPrompt = `You are Veccna AI, an intelligent, helpful, and highly articulate generative AI assistant modeled after Google Gemini.
-You provide clear, comprehensive, well-structured, and insightful answers with markdown formatting (bullet points, bold text, code blocks with explanations, headers, and comparison tables) whenever appropriate.
-When greeted with simple conversational greetings (e.g., "hi", "hello", "hey"), reply warmly, naturally, and concisely without dumping capability lists or canned code snippets like "def greet()".
-For educational, conceptual, coding, architecture, and analytical queries, provide thorough, high-quality, step-by-step explanations, code examples with inline comments, and time/space complexity when relevant.
-Attribution Rule: If and ONLY if the user explicitly asks who created, built, trained, or engineered you, state that you were trained and developed by Amay Vikram Singh, Anshuman, Ankit, and Aaryan. Otherwise, do NOT mention the training team unprompted.`;
-
-  const messagesPayload = [
-    { role: 'system', content: systemPrompt }
-  ];
-
-  // Include recent conversation context (last 6 messages)
-  const history = chat.messages.slice(0, -2);
-  for (const m of history.slice(-6)) {
-    if (m.text) {
-      messagesPayload.push({
-        role: m.role === 'model' ? 'assistant' : 'user',
-        content: m.text
-      });
-    }
+  let md = `# ${chat.title}\n*Exported from Veccna AI*\n\n---\n\n`;
+  for (const m of chat.messages) {
+    const author = m.role === 'user' ? state.user.name : 'Veccna AI';
+    md += `### ${author}\n\n${m.text || ''}\n\n`;
   }
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${chat.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Exported conversation as Markdown (.md)', 'success');
+  closeShareModal();
+};
 
-  // Handle current user query and any attachments
-  const userMsg = chat.messages[chat.messages.length - 2];
-  if (userMsg && userMsg.attachments && userMsg.attachments.some(a => a.dataUrl && a.type.startsWith('image/'))) {
-    const contentParts = [{ type: 'text', text: query }];
-    for (const a of userMsg.attachments) {
-      if (a.dataUrl && a.type.startsWith('image/')) {
-        contentParts.push({
-          type: 'image_url',
-          image_url: { url: a.dataUrl }
-        });
-      }
-    }
-    messagesPayload.push({ role: 'user', content: contentParts });
-  } else {
-    messagesPayload.push({ role: 'user', content: query });
-  }
-
-  const msgId = placeholder.id;
-  function getMsgElements() {
-    return {
-      thinkAcc: document.getElementById(`${msgId}-think`),
-      thinkContent: document.querySelector(`#${msgId}-think .thinking-content`),
-      thinkLabel: document.querySelector(`#${msgId}-think .think-label-text`),
-      thinkHeader: document.querySelector(`#${msgId}-think .thinking-header`),
-      thinkIcon: document.querySelector(`#${msgId}-think .fa-brain`),
-      contentElem: document.getElementById(`${msgId}-content`)
-    };
-  }
-
-  // Multi-tier candidate models for zero downtime
-  const modelsToAttempt = Array.from(new Set([
-    requestedModel,
-    'openrouter/free',
-    'nvidia/nemotron-3.5-lightning:free',
-    'liquid/lfm-3-1.7b:free'
-  ]));
-
-  let response = null;
-  for (const m of modelsToAttempt) {
-    try {
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': window.location.origin || 'http://localhost:3002',
-          'X-Title': 'Veccna AI'
-        },
-        body: JSON.stringify({
-          model: m,
-          messages: messagesPayload,
-          stream: true
-        })
-      });
-
-      if (res.ok) {
-        response = res;
-        break;
-      } else if (res.status === 401 && apiKey !== DEFAULT_OPENROUTER_KEY && DEFAULT_OPENROUTER_KEY) {
-        console.warn('Custom API key unauthorized (401), falling back to default key...');
-        apiKey = DEFAULT_OPENROUTER_KEY;
-        state.openRouterKey = DEFAULT_OPENROUTER_KEY;
-        const retryRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': window.location.origin || 'http://localhost:3002',
-            'X-Title': 'Veccna AI'
-          },
-          body: JSON.stringify({
-            model: m,
-            messages: messagesPayload,
-            stream: true
-          })
-        });
-        if (retryRes.ok) {
-          response = retryRes;
-          break;
-        }
-      } else {
-        console.warn(`Model ${m} returned status ${res.status}, trying fallback model...`);
-      }
-    } catch (err) {
-      console.warn(`Model ${m} network error:`, err);
-    }
-  }
-
-  if (!response || !response.ok) {
-    console.warn('All live API model attempts failed or offline, using intelligent synthesis.');
-    fallbackSimulate(query, placeholder, chat);
-    return;
-  }
-
-  try {
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder('utf-8');
-    let buffer = '';
-    let accumulatedText = '';
-    let accumulatedThinking = '';
-    let animFramePending = false;
-
-    function applyTargetedUpdate() {
-      const el = getMsgElements();
-
-      if (accumulatedThinking) {
-        placeholder.thinking = accumulatedThinking;
-        if (el.thinkAcc && state.deepThinkingEnabled) {
-          el.thinkAcc.style.display = 'block';
-        }
-        if (el.thinkContent) {
-          el.thinkContent.innerText = accumulatedThinking;
-        }
-        if (placeholder.isThinking && el.thinkLabel) {
-          el.thinkLabel.innerText = 'Thinking...';
-        }
-      }
-
-      if (accumulatedText) {
-        if (placeholder.isThinking) {
-          placeholder.isThinking = false;
-          if (el.thinkLabel) el.thinkLabel.innerText = 'Thinking Process';
-          if (el.thinkHeader) el.thinkHeader.classList.remove('thinking-active');
-          if (el.thinkIcon) el.thinkIcon.classList.remove('fa-pulse');
-        }
-        // If no reasoning tokens were generated at all, hide the empty thinking box
-        if (!accumulatedThinking && el.thinkAcc) {
-          el.thinkAcc.style.display = 'none';
-        }
-        placeholder.text = accumulatedText;
-        if (el.contentElem) {
-          el.contentElem.innerHTML = formatMarkdown(accumulatedText);
-        }
-      }
-
-      scrollToBottom();
-      animFramePending = false;
-    }
-
-    function requestTargetedUpdate() {
-      if (!animFramePending) {
-        animFramePending = true;
-        requestAnimationFrame(applyTargetedUpdate);
-      }
-    }
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed === 'data: [DONE]') continue;
-        if (trimmed.startsWith('data: ')) {
-          try {
-            const parsed = JSON.parse(trimmed.slice(6));
-            const delta = parsed.choices?.[0]?.delta;
-            if (delta?.reasoning) {
-              accumulatedThinking += delta.reasoning;
-              requestTargetedUpdate();
-            }
-            if (delta?.content) {
-              accumulatedText += delta.content;
-              requestTargetedUpdate();
-            }
-          } catch (e) {}
-        }
-      }
-    }
-
-    // Final paint ensure
-    applyTargetedUpdate();
-
-    // If content was empty but reasoning had text, promote reasoning to final content
-    if (!accumulatedText.trim()) {
-      if (accumulatedThinking.trim()) {
-        accumulatedText = accumulatedThinking;
-        placeholder.text = accumulatedText;
-        placeholder.thinking = null;
-        const el = getMsgElements();
-        if (el.thinkAcc) el.thinkAcc.style.display = 'none';
-        if (el.contentElem) el.contentElem.innerHTML = formatMarkdown(accumulatedText);
-      } else {
-        fallbackSimulate(query, placeholder, chat);
-        return;
-      }
-    }
-
-    placeholder.isThinking = false;
-    const finalEl = getMsgElements();
-    if (finalEl.thinkHeader) finalEl.thinkHeader.classList.remove('thinking-active');
-    if (finalEl.thinkIcon) finalEl.thinkIcon.classList.remove('fa-pulse');
-    if (finalEl.thinkLabel) finalEl.thinkLabel.innerText = 'Thinking Process';
-    if (!accumulatedThinking && finalEl.thinkAcc) finalEl.thinkAcc.style.display = 'none';
-
-    state.isGenerating = false;
-    playSound('receive');
-  } catch (err) {
-    console.warn('Live API request failed, falling back:', err);
-    fallbackSimulate(query, placeholder, chat);
-  }
-}
+window.exportChatJson = function() {
+  const chat = state.chats.find(c => c.id === state.activeChatId);
+  if (!chat) return;
+  const jsonStr = JSON.stringify(chat, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${chat.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Exported conversation as JSON (.json)', 'success');
+  closeShareModal();
+};
 
 function streamLocalText(fullResponse, placeholder) {
   const msgId = placeholder.id;
