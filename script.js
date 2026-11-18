@@ -159,8 +159,15 @@ const modelModal = document.getElementById('modelModal');
 function formatMarkdown(text) {
   if (!text) return '';
 
+  // Strip unsolicited generic greeting code snippets
+  let cleanText = text
+    .replace(/💡\s*Quick Example[\s\S]*?```[a-z]*\s*def greet[\s\S]*?```/gi, '')
+    .replace(/```[a-z]*\s*def greet\(name\):[\s\S]*?```/gi, '')
+    .replace(/def greet\(name\):[\s\S]*?print\(greet\([^)]*\)\)/gi, '')
+    .replace(/💡\s*Quick Example/gi, '');
+
   // Escape HTML entities to prevent raw injection
-  let escaped = text
+  let escaped = cleanText
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
@@ -565,7 +572,7 @@ async function generateAiResponse(query, placeholder, chat) {
   const apiKey = state.openRouterKey || DEFAULT_OPENROUTER_KEY;
   const modelId = MODEL_MAPPING[state.currentModel] || 'nvidia/nemotron-3.5-lightning:free';
 
-  const systemPrompt = `You are Veccna AI, an advanced generative multimodal intelligence platform. Always respond helpfully with clear structure, markdown, code blocks, and rich insights. If and ONLY if the user explicitly asks who created, built, trained, or engineered you, state that you were trained by Amay Vikram Singh, Anshuman, Ankit, and Aaryan. Otherwise, do NOT mention the training team unprompted.`;
+  const systemPrompt = `You are Veccna AI, an advanced conversational and multimodal intelligence platform just like Google Gemini. When greeted or asked simple conversational questions, reply naturally, warmly, and concisely. NEVER output unsolicited generic code examples (such as def greet() or quick examples) or lists of capabilities unless explicitly requested to do so. Provide code blocks ONLY when the user explicitly asks for code, programming, or implementation details. If and ONLY if the user explicitly asks who created, built, trained, or engineered you, state that you were trained by Amay Vikram Singh, Anshuman, Ankit, and Aaryan. Otherwise, do NOT mention the training team unprompted.`;
 
   const messagesPayload = [
     { role: 'system', content: systemPrompt }
