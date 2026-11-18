@@ -787,6 +787,88 @@ window.closeHelpModal = function() {
   if (modal) modal.classList.remove('open');
 };
 
+// --- Interactive Help & Support Logic ---
+window.askInteractiveHelp = function(topic) {
+  playSound('click');
+  const card = document.getElementById('helpResponseCard');
+  const body = document.getElementById('helpResponseBody');
+  const title = document.getElementById('helpResponseTitle');
+  if (!card || !body) return;
+
+  card.style.display = 'block';
+
+  if (topic.includes('upload')) {
+    title.innerHTML = '<i class="fas fa-file-arrow-up" style="color: var(--sky-bright);"></i> File & Code Upload Guide';
+    body.innerHTML = `
+      <strong>How to attach files:</strong><br>
+      1. Click the <strong>[+ Upload]</strong> pill button in the bottom prompt bar.<br>
+      2. Select any image, PDF, code file (<code>.py</code>, <code>.js</code>, <code>.json</code>), or text document.<br>
+      3. Your file appears as a removable preview tag. Type your instruction and press Enter.<br>
+      4. Veccna AI analyzes the contents across its 2M token context window.
+    `;
+  } else if (topic.includes('Thinking')) {
+    title.innerHTML = '<i class="fas fa-brain" style="color: #a855f7;"></i> Deep Thinking Mode';
+    body.innerHTML = `
+      <strong>About Deep Thinking:</strong><br>
+      • Deep Thinking gives Veccna AI dedicated computation time to evaluate multi-step reasoning before outputting answers.<br>
+      • You can toggle it at any time using the <strong>[Deep Think]</strong> pill in the bottom bar.<br>
+      • An expandable <em>"Thinking Process"</em> accordion will appear above the answer so you can inspect the step-by-step logic.
+    `;
+  } else if (topic.includes('models')) {
+    title.innerHTML = '<i class="fas fa-sparkles" style="color: #38bdf8;"></i> Model Catalog';
+    body.innerHTML = `
+      <strong>Available Models in Selector:</strong><br>
+      • <strong>Veccna 2.5 Pro (Thinking):</strong> Best for complex reasoning, system architecture, code, and math.<br>
+      • <strong>Veccna 2.5 Flash:</strong> Ultra-fast response speeds for everyday general queries.<br>
+      • <strong>Veccna Deep Research:</strong> Autonomous multi-step web queries and comprehensive reports.
+    `;
+  } else if (topic.includes('account') || topic.includes('session')) {
+    title.innerHTML = '<i class="far fa-user" style="color: #10b981;"></i> Account & Profile';
+    body.innerHTML = `
+      <strong>Managing your account:</strong><br>
+      • Click your avatar in the top-right corner to open your profile dropdown.<br>
+      • View your active tier (<strong>Veccna Pro 2.5</strong>) and session email.<br>
+      • Click <strong>[Sign out]</strong> to end your session, or use the <strong>[Sign in]</strong> modal to switch accounts anytime.
+    `;
+  }
+};
+
+window.submitUserFeedback = function() {
+  const input = document.getElementById('interactiveHelpInput');
+  const text = input ? input.value.trim() : '';
+  if (!text) {
+    showToast('Please type your feedback or question first.', 'info');
+    return;
+  }
+  playSound('receive');
+  showToast('Feedback delivered! Thank you for helping us improve Veccna AI.', 'success');
+  input.value = '';
+  const card = document.getElementById('helpResponseCard');
+  if (card) {
+    card.style.display = 'block';
+    document.getElementById('helpResponseTitle').innerHTML = '<i class="fas fa-check-circle" style="color: #10b981;"></i> Feedback Acknowledged';
+    document.getElementById('helpResponseBody').innerHTML = `
+      <strong>Feedback received:</strong> <em>"${text}"</em><br><br>
+      Our core engineering team continuously refines the Veccna platform based on direct user interactions.
+    `;
+  }
+};
+
+window.submitInteractiveQuestion = function() {
+  const input = document.getElementById('interactiveHelpInput');
+  const text = input ? input.value.trim() : '';
+  if (!text) {
+    showToast('Please enter a question to ask the assistant.', 'info');
+    return;
+  }
+  closeHelpModal();
+  if (promptInput) {
+    promptInput.value = text;
+    promptInput.dispatchEvent(new Event('input'));
+    handleSendPrompt();
+  }
+};
+
 window.toggleSoundSetting = function(enabled) {
   state.soundEnabled = enabled;
   if (enabled) playSound('click');

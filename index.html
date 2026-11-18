@@ -80,14 +80,10 @@
           <i class="fas fa-clock-rotate-left"></i>
           <span>Activity</span>
         </button>
-        <button class="footer-btn" onclick="openHelpModal()" title="Help & Shortcuts">
+        <button class="footer-btn" onclick="openHelpModal()" title="Help & Interactive Support">
           <i class="fas fa-circle-question"></i>
           <span>Help</span>
         </button>
-        <div class="sidebar-status-pill">
-          <span class="status-live-dot"></span>
-          <span class="status-live-text">Veccna 2.5 • Operational</span>
-        </div>
       </div>
     </aside>
 
@@ -559,17 +555,75 @@
     </div>
   </div>
 
-  <!-- ==================== HELP & SHORTCUTS MODAL ==================== -->
+  <!-- ==================== HELP & INTERACTIVE SUPPORT MODAL ==================== -->
   <div class="modal-backdrop" id="helpModal">
-    <div class="modal-box" style="width: 540px;">
+    <div class="modal-box" style="width: 580px;">
       <div class="modal-header-bar">
         <div class="modal-title-text">
           <i class="fas fa-circle-question" style="color: var(--sky-bright);"></i>
-          <span>Help & Shortcuts</span>
+          <span>Help & User Support</span>
         </div>
         <button class="icon-action-btn" onclick="closeHelpModal()"><i class="fas fa-times"></i></button>
       </div>
       <div class="modal-body-container" style="gap: 1.25rem;">
+        
+        <!-- Interactive Help Assistant Section -->
+        <div class="help-interactive-section">
+          <div class="settings-group-title">Interactive Assistance & User Feedback</div>
+          <div class="help-concierge-card">
+            <div class="concierge-header">
+              <div class="concierge-avatar">
+                <i class="fas fa-headset"></i>
+              </div>
+              <div class="concierge-meta">
+                <span class="concierge-name">Veccna Concierge Support</span>
+                <span class="concierge-sub">Ask a question or submit direct feedback</span>
+              </div>
+            </div>
+
+            <!-- Quick Interactive Question Pills -->
+            <div class="help-pills-row">
+              <button class="help-pill" onclick="askInteractiveHelp('How do I upload and analyze files in Veccna AI?')">
+                <i class="far fa-file-code"></i> Uploading Files
+              </button>
+              <button class="help-pill" onclick="askInteractiveHelp('How does Deep Thinking reasoning work?')">
+                <i class="fas fa-brain"></i> Deep Thinking
+              </button>
+              <button class="help-pill" onclick="askInteractiveHelp('What models are available in Veccna AI?')">
+                <i class="fas fa-sparkles"></i> Model Types
+              </button>
+              <button class="help-pill" onclick="askInteractiveHelp('How do I manage my account and session?')">
+                <i class="far fa-user"></i> Account & Auth
+              </button>
+            </div>
+
+            <!-- Interactive Live Input Box -->
+            <div class="interactive-help-box">
+              <textarea class="interactive-help-input" id="interactiveHelpInput" rows="2" placeholder="Ask a question about using Veccna AI, or write feedback for our team..."></textarea>
+              <div class="interactive-help-actions">
+                <button class="btn-secondary-sm" onclick="submitUserFeedback()">
+                  <i class="far fa-paper-plane"></i>
+                  <span>Send Feedback</span>
+                </button>
+                <button class="btn-accent-sm" onclick="submitInteractiveQuestion()">
+                  <i class="fas fa-comments"></i>
+                  <span>Ask in Chat</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Dynamic Interactive Response Container -->
+            <div class="help-response-card" id="helpResponseCard" style="display: none;">
+              <div class="help-response-header">
+                <span id="helpResponseTitle"><i class="fas fa-circle-check" style="color: var(--sky-bright);"></i> Veccna Guide</span>
+                <button class="icon-action-btn-sm" onclick="document.getElementById('helpResponseCard').style.display='none'"><i class="fas fa-times"></i></button>
+              </div>
+              <div class="help-response-body" id="helpResponseBody"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Keyboard Shortcuts Section -->
         <div>
           <div class="settings-group-title">Keyboard Shortcuts</div>
           <div class="shortcut-row">
@@ -590,14 +644,6 @@
           </div>
         </div>
 
-        <div>
-          <div class="settings-group-title">Pro Tips</div>
-          <ul style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.6; padding-left: 1.25rem;">
-            <li>Click <strong>Upload</strong> to attach code files, JSON datasets, or images.</li>
-            <li>Enable <strong>Deep Think</strong> for multi-step reasoning, mathematical derivations, or architecture plans.</li>
-            <li>Toggle <strong>Search</strong> to ground outputs with live web intelligence.</li>
-          </ul>
-        </div>
       </div>
     </div>
   </div>
