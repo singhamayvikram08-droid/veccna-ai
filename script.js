@@ -283,9 +283,12 @@ function renderActiveChat() {
 }
 
 function renderMessageRow(msg) {
+  const msgId = msg.id || ('msg-' + Math.random().toString(36).substring(2, 9));
+  msg.id = msgId;
+
   if (msg.role === 'user') {
     return `
-      <div class="message-row user-row">
+      <div class="message-row user-row" id="${msgId}">
         <div class="message-avatar user-avatar-icon">AV</div>
         <div class="message-body">
           <div class="message-content">${formatMarkdown(msg.text)}</div>
@@ -293,9 +296,15 @@ function renderMessageRow(msg) {
       </div>
     `;
   } else {
-    const formattedHtml = formatMarkdown(msg.text);
+    const formattedHtml = msg.text ? formatMarkdown(msg.text) : (msg.isThinking ? `
+      <div class="thinking-shimmer-bar">
+        <div class="thinking-dots"><span></span><span></span><span></span></div>
+        <span>Thinking...</span>
+      </div>
+    ` : '<span class="typing-cursor"></span>');
+
     return `
-      <div class="message-row ai-row">
+      <div class="message-row ai-row" id="${msgId}">
         <div class="message-avatar ai-avatar-icon">
           <svg viewBox="0 0 100 100" fill="none">
             <path d="M16 18 L50 86 L84 18 L68 18 L50 60 L32 18 Z" fill="url(#msgVeccnaGrad)" />
@@ -324,9 +333,12 @@ function renderMessageRow(msg) {
           </div>
 
           ${msg.thinking ? `
-            <div class="thinking-accordion open">
-              <div class="thinking-header" onclick="this.parentElement.classList.toggle('open')">
-                <span><i class="fas fa-brain"></i> Thinking Process</span>
+            <div class="thinking-accordion ${msg.isOpen ? 'open' : ''}" id="${msgId}-think">
+              <div class="thinking-header ${msg.isThinking ? 'thinking-active' : ''}" onclick="toggleThinkingAccordion(this)">
+                <span>
+                  <i class="fas fa-brain ${msg.isThinking ? 'fa-pulse' : ''}"></i> 
+                  <span class="think-label-text">${msg.isThinking ? 'Thinking...' : 'Thinking Process'}</span>
+                </span>
                 <i class="fas fa-chevron-down"></i>
               </div>
               <div class="thinking-content">
@@ -335,7 +347,7 @@ function renderMessageRow(msg) {
             </div>
           ` : ''}
 
-          <div class="message-content">${formattedHtml}</div>
+          <div class="message-content" id="${msgId}-content">${formattedHtml}</div>
 
           <div class="message-actions">
             <button class="msg-act-btn" onclick="copyMessageText(this)" title="Copy Response"><i class="far fa-copy"></i></button>
@@ -348,6 +360,14 @@ function renderMessageRow(msg) {
     `;
   }
 }
+
+window.toggleThinkingAccordion = function(header) {
+  playSound('click');
+  const accordion = header.closest('.thinking-accordion');
+  if (accordion) {
+    accordion.classList.toggle('open');
+  }
+};
 
 window.copyMessageText = function(btn) {
   const content = btn.closest('.message-body').querySelector('.message-content');
@@ -500,9 +520,13 @@ function handleSendPrompt() {
   renderActiveChat();
 
   // Create Streaming Placeholder
+  const msgId = `msg-${Date.now()}`;
   const aiMessagePlaceholder = {
+    id: msgId,
     role: 'model',
-    thinking: state.deepThinkingEnabled ? `Analyzing query, evaluating multimodal context, synthesizing structured reasoning...` : null,
+    thinking: state.deepThinkingEnabled ? `Analyzing query, evaluating cognitive context...` : null,
+    isThinking: state.deepThinkingEnabled,
+    isOpen: false, // Unexpanded by default
     text: ''
   };
   chat.messages.push(aiMessagePlaceholder);
@@ -575,6 +599,18 @@ async function generateAiResponse(query, placeholder, chat) {
     messagesPayload.push({ role: 'user', content: query });
   }
 
+  const msgId = placeholder.id;
+  function getMsgElements() {
+    return {
+      thinkAcc: document.getElementById(`${msgId}-think`),
+      thinkContent: document.querySelector(`#${msgId}-think .thinking-content`),
+      thinkLabel: document.querySelector(`#${msgId}-think .think-label-text`),
+      thinkHeader: document.querySelector(`#${msgId}-think .thinking-header`),
+      thinkIcon: document.querySelector(`#${msgId}-think .fa-brain`),
+      contentElem: document.getElementById(`${msgId}-content`)
+    };
+  }
+
   try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -602,6 +638,44 @@ async function generateAiResponse(query, placeholder, chat) {
     let buffer = '';
     let accumulatedText = '';
     let accumulatedThinking = '';
+    let animFramePending = false;
+
+    function applyTargetedUpdate() {
+      const el = getMsgElements();
+
+      if (accumulatedThinking) {
+        placeholder.thinking = accumulatedThinking;
+        if (el.thinkContent) {
+          el.thinkContent.innerText = accumulatedThinking;
+        }
+        if (placeholder.isThinking && el.thinkLabel) {
+          el.thinkLabel.innerText = 'Thinking...';
+        }
+      }
+
+      if (accumulatedText) {
+        if (placeholder.isThinking) {
+          placeholder.isThinking = false;
+          if (el.thinkLabel) el.thinkLabel.innerText = 'Thinking Process';
+          if (el.thinkHeader) el.thinkHeader.classList.remove('thinking-active');
+          if (el.thinkIcon) el.thinkIcon.classList.remove('fa-pulse');
+        }
+        placeholder.text = accumulatedText;
+        if (el.contentElem) {
+          el.contentElem.innerHTML = formatMarkdown(accumulatedText);
+        }
+      }
+
+      scrollToBottom();
+      animFramePending = false;
+    }
+
+    function requestTargetedUpdate() {
+      if (!animFramePending) {
+        animFramePending = true;
+        requestAnimationFrame(applyTargetedUpdate);
+      }
+    }
 
     while (true) {
       const { done, value } = await reader.read();
@@ -620,23 +694,30 @@ async function generateAiResponse(query, placeholder, chat) {
             const delta = parsed.choices?.[0]?.delta;
             if (delta?.reasoning) {
               accumulatedThinking += delta.reasoning;
-              placeholder.thinking = accumulatedThinking;
-              renderActiveChat();
+              requestTargetedUpdate();
             }
             if (delta?.content) {
               accumulatedText += delta.content;
-              placeholder.text = accumulatedText;
-              renderActiveChat();
+              requestTargetedUpdate();
             }
           } catch (e) {}
         }
       }
     }
 
+    // Final paint ensure
+    applyTargetedUpdate();
+
     if (!accumulatedText.trim()) {
       fallbackSimulate(query, placeholder, chat);
       return;
     }
+
+    placeholder.isThinking = false;
+    const finalEl = getMsgElements();
+    if (finalEl.thinkHeader) finalEl.thinkHeader.classList.remove('thinking-active');
+    if (finalEl.thinkIcon) finalEl.thinkIcon.classList.remove('fa-pulse');
+    if (finalEl.thinkLabel) finalEl.thinkLabel.innerText = 'Thinking Process';
 
     state.isGenerating = false;
     playSound('receive');
@@ -647,18 +728,37 @@ async function generateAiResponse(query, placeholder, chat) {
 }
 
 function streamLocalText(fullResponse, placeholder) {
+  const msgId = placeholder.id;
   let charIndex = 0;
+  placeholder.isThinking = false;
+
+  const thinkHeader = document.querySelector(`#${msgId}-think .thinking-header`);
+  if (thinkHeader) {
+    thinkHeader.classList.remove('thinking-active');
+    const label = thinkHeader.querySelector('.think-label-text');
+    if (label) label.innerText = 'Thinking Process';
+    const icon = thinkHeader.querySelector('.fa-brain');
+    if (icon) icon.classList.remove('fa-pulse');
+  }
+
+  const contentElem = document.getElementById(`${msgId}-content`);
+
   const streamInterval = setInterval(() => {
     charIndex += Math.min(22, fullResponse.length - charIndex);
-    placeholder.text = fullResponse.substring(0, charIndex);
-    renderActiveChat();
+    const slice = fullResponse.substring(0, charIndex);
+    placeholder.text = slice;
+
+    if (contentElem) {
+      contentElem.innerHTML = formatMarkdown(slice);
+      scrollToBottom();
+    }
 
     if (charIndex >= fullResponse.length) {
       clearInterval(streamInterval);
       state.isGenerating = false;
       playSound('receive');
     }
-  }, 30);
+  }, 25);
 }
 
 function fallbackSimulate(query, placeholder, chat) {
