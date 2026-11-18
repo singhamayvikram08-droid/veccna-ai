@@ -1,0 +1,16 @@
+{
+  "name": "Veccna AI - Attack Signal Intelligence",
+  "short_name": "Veccna AI",
+  "description": "AI-Driven Attack Signal Intelligence and Autonomous Threat Defense Platform. Trained by Amay, Anshuman, Ankit & Aaryan.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090B",
+  "theme_color": "#0F172A",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <title>Veccna AI | Multimodal Intelligence Platform</title>
+  <meta name="description" content="Veccna AI is a next-generation multimodal AI platform just like Gemini, engineered and trained by Amay, Anshuman, Ankit, and Aaryan in an ergonomic dark slate aesthetic.">
+  <meta name="theme-color" content="#09090b">
+
+  <!-- Favicon & PWA Manifest -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="manifest" href="/manifest.json">
+
+  <!-- Google Fonts & FontAwesome -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <div class="app-layout">
+
+    <!-- ==================== GEMINI-STYLE COLLAPSIBLE SIDEBAR ==================== -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-brand-wrapper">
+          <button class="sidebar-toggle-btn" id="sidebarToggle" title="Collapse Menu">
+            <i class="fas fa-bars"></i>
+          </button>
+          <div class="sidebar-brand-title">
+            <svg class="veccna-logo-svg" viewBox="0 0 100 100" fill="none">
+              <path d="M16 18 L50 86 L84 18 L68 18 L50 60 L32 18 Z" fill="url(#sidebarLogoGrad)" />
+              <path d="M36 24 L50 56 L64 24 L56 24 L50 40 L44 24 Z" fill="url(#sidebarInnerGrad)" />
+              <polygon points="50,22 55,30 50,38 45,30" fill="#FFFFFF" />
+              <circle cx="50" cy="30" r="7" stroke="#38BDF8" stroke-width="1.2" stroke-dasharray="2 2" opacity="0.8" />
+              <circle cx="24" cy="18" r="3.5" fill="#38BDF8" />
+              <circle cx="76" cy="18" r="3.5" fill="#EC4899" />
+              <circle cx="50" cy="86" r="3" fill="#6366F1" />
+              <defs>
+                <linearGradient id="sidebarLogoGrad" x1="15" y1="15" x2="85" y2="85" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#38BDF8" />
+                  <stop offset="50%" stop-color="#6366F1" />
+                  <stop offset="100%" stop-color="#EC4899" />
+                </linearGradient>
+                <linearGradient id="sidebarInnerGrad" x1="85" y1="15" x2="15" y2="85" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#06B6D4" />
+                  <stop offset="100%" stop-color="#8B5CF6" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <span class="brand-name">Veccna</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- New Chat Button -->
+      <button class="new-chat-btn" id="newChatBtn">
+        <i class="fas fa-plus"></i>
+        <span class="new-chat-text">New chat</span>
+      </button>
+
+      <!-- Chat History & Pinned Items -->
+      <div class="sidebar-content">
+        <div class="section-label">Recent Chats</div>
+        <div class="chat-history-list" id="chatHistoryList">
+          <!-- Populated by script.js -->
+        </div>
+      </div>
+
+      <!-- Sidebar Footer -->
+      <div class="sidebar-footer">
+        <button class="footer-btn" onclick="openModelModal()">
+          <i class="fas fa-circle-info"></i>
+          <span>About Veccna AI</span>
+        </button>
+        <a href="/privacy.html" class="footer-btn">
+          <i class="fas fa-shield-halved"></i>
+          <span>Privacy & Terms</span>
+        </a>
+      </div>
+    </aside>
+
+    <!-- ==================== MAIN CHAT STAGE ==================== -->
+    <main class="main-stage">
+
+      <!-- Top Header Navigation -->
+      <header class="app-header">
+        <div class="header-left">
+          <!-- Model Selector Dropdown -->
+          <div class="model-selector" id="modelSelector">
+            <span class="model-sparkle"><i class="fas fa-sparkles"></i></span>
+            <span id="selectedModelName">Veccna 2.5 Pro (Thinking)</span>
+            <span class="model-badge-tag">2M Context</span>
+            <i class="fas fa-chevron-down" style="font-size: 0.7rem; color: var(--text-dim); margin-left: 0.2rem;"></i>
+
+            <!-- Model Dropdown Menu -->
+            <div class="model-dropdown-menu" id="modelDropdown">
+              <div class="model-option active-model" data-model="Veccna 2.5 Pro (Thinking)">
+                <div class="model-opt-title">
+                  <span>Veccna 2.5 Pro</span>
+                  <span class="model-badge-tag">Thinking</span>
+                </div>
+                <div class="model-opt-desc">Complex reasoning, coding & architecture with 2M token context window.</div>
+              </div>
+
+              <div class="model-option" data-model="Veccna 2.5 Flash">
+                <div class="model-opt-title">
+                  <span>Veccna 2.5 Flash</span>
+                  <span class="model-badge-tag">Fast</span>
+                </div>
+                <div class="model-opt-desc">Blazing fast intelligence for everyday tasks and multimodal reasoning.</div>
+              </div>
+
+              <div class="model-option" data-model="Veccna Deep Research">
+                <div class="model-opt-title">
+                  <span>Veccna Deep Research</span>
+                  <span class="model-badge-tag">Research</span>
+                </div>
+                <div class="model-opt-desc">Multi-step autonomous web search, report synthesis & scientific analysis.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="header-right">
+          <button class="icon-action-btn" title="Share Conversation" onclick="navigator.clipboard.writeText(window.location.href); alert('Chat link copied!')">
+            <i class="fas fa-share-nodes"></i>
+          </button>
+          <button class="icon-action-btn" title="Model Info" onclick="openModelModal()">
+            <i class="fas fa-circle-info"></i>
+          </button>
+          <div class="user-avatar" title="User Profile">AV</div>
+        </div>
+      </header>
+
+      <!-- Scrollable Chat View -->
+      <div class="chat-scroll-view" id="chatScrollView">
+        <div class="chat-center-stage">
+
+          <!-- Welcome Hero (Displayed when chat is empty) -->
+          <div class="welcome-hero" id="welcomeHero">
+            <div class="welcome-logo-icon">
+              <!-- Official Veccna AI Neural V-Crest Logo -->
+              <svg viewBox="0 0 100 100" fill="none">
+                <path d="M16 18 L50 86 L84 18 L68 18 L50 60 L32 18 Z" fill="url(#heroVeccnaGrad)" />
+                <path d="M36 24 L50 56 L64 24 L56 24 L50 40 L44 24 Z" fill="url(#heroVeccnaInner)" />
+                <polygon points="50,22 55,30 50,38 45,30" fill="#FFFFFF" />
+                <circle cx="50" cy="30" r="8" stroke="#38BDF8" stroke-width="1.2" stroke-dasharray="2 2" opacity="0.85" />
+                <circle cx="24" cy="18" r="3.5" fill="#38BDF8" />
+                <circle cx="76" cy="18" r="3.5" fill="#EC4899" />
+                <circle cx="50" cy="86" r="3" fill="#6366F1" />
+                <defs>
+                  <linearGradient id="heroVeccnaGrad" x1="15" y1="15" x2="85" y2="85" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#38BDF8" />
+                    <stop offset="45%" stop-color="#6366F1" />
+                    <stop offset="100%" stop-color="#EC4899" />
+                  </linearGradient>
+                  <linearGradient id="heroVeccnaInner" x1="85" y1="15" x2="15" y2="85" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#06B6D4" />
+                    <stop offset="100%" stop-color="#8B5CF6" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+
+            <div class="welcome-greeting">
+              Hello, Amay
+              <span class="gradient-text">How can Veccna help you today?</span>
+            </div>
+
+            <p class="welcome-subtitle">
+              Next-generation multimodal AI platform built to reason, code, and create.
+            </p>
+
+            <!-- Gemini Prompt Suggestion Cards Grid -->
+            <div class="suggestions-grid">
+              <div class="suggestion-card" data-prompt="Write an asynchronous multi-agent coordination pipeline in Python">
+                <div class="suggestion-text">Write an asynchronous multi-agent coordination pipeline in Python</div>
+                <div class="suggestion-icon"><i class="fas fa-code"></i></div>
+              </div>
+
+              <div class="suggestion-card" data-prompt="Explain how multi-head self-attention works in modern transformer architectures">
+                <div class="suggestion-text">Explain how multi-head self-attention works in modern transformer architectures</div>
+                <div class="suggestion-icon"><i class="fas fa-brain"></i></div>
+              </div>
+
+              <div class="suggestion-card" data-prompt="Compare Veccna AI's 2M token context window with Gemini and GPT-4o">
+                <div class="suggestion-text">Compare Veccna AI's 2M token context window with Gemini and GPT-4o</div>
+                <div class="suggestion-icon"><i class="fas fa-scale-balanced"></i></div>
+              </div>
+
+              <div class="suggestion-card" data-prompt="How does Quantum Key Distribution protect distributed AI systems?">
+                <div class="suggestion-text">How does Quantum Key Distribution protect distributed AI systems?</div>
+                <div class="suggestion-icon"><i class="fas fa-atom"></i></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Messages Container -->
+          <div class="messages-container" id="messagesContainer">
+            <!-- Messages injected by script.js -->
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ==================== FLOATING BOTTOM INPUT CAPSULE ==================== -->
+      <div class="input-dock">
+        <div class="input-capsule-wrapper">
+          <div class="input-capsule">
+            <!-- Attachment preview area -->
+            <div class="attachment-preview-area" id="attachmentPreview"></div>
+
+            <!-- Auto-expanding Textarea -->
+            <textarea class="prompt-textarea" id="promptInput" rows="1" placeholder="Ask Veccna anything..."></textarea>
+
+            <!-- Bottom Tools & Action Controls -->
+            <div class="input-controls-row">
+              <div class="input-tools-left">
+                <button class="tool-pill-btn" id="attachFileBtn" title="Attach image or document">
+                  <i class="fas fa-plus"></i>
+                  <span>Upload</span>
+                </button>
+                <input type="file" id="fileInput" style="display: none;" accept="image/*,.pdf,.txt,.py,.js,.json">
+
+                <button class="tool-pill-btn active" id="thinkToggleBtn" title="Toggle Deep Reasoning">
+                  <i class="fas fa-brain"></i>
+                  <span>Deep Think</span>
+                </button>
+
+                <button class="tool-pill-btn active" id="searchToggleBtn" title="Toggle Web Grounding">
+                  <i class="fas fa-globe"></i>
+                  <span>Search</span>
+                </button>
+              </div>
+
+              <div class="input-actions-right">
+                <button class="icon-action-btn" title="Voice Input" onclick="alert('Voice input activated')">
+                  <i class="fas fa-microphone"></i>
+                </button>
+                <button class="send-prompt-btn" id="sendPromptBtn" title="Send Prompt">
+                  <i class="fas fa-arrow-up"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="input-disclaimer">
+            Veccna AI can make mistakes. Verify important information.
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- ==================== MODEL ARCHITECTURE & CREDITS MODAL ==================== -->
+  <div class="modal-backdrop" id="modelModal">
+    <div class="modal-box">
+      <div class="modal-header-bar">
+        <div class="modal-title-text">
+          <i class="fas fa-microchip" style="color: var(--sky-bright);"></i>
+          <span>Veccna AI Foundation Model & Training Heritage</span>
+        </div>
+        <button class="icon-action-btn" onclick="closeModelModal()"><i class="fas fa-times"></i></button>
+      </div>
+
+      <div class="modal-body-container">
+        <div>
+          <h3 style="font-size: 0.95rem; font-weight: 700; color: #ffffff; margin-bottom: 0.5rem;">
+            Founding AI & Systems Engineering Team
+          </h3>
+          <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 1rem;">
+            The Veccna AI platform and its Synapse-X foundation model were architected, trained, and optimized by:
+          </p>
+
+          <div class="team-grid-4">
+            <div class="team-profile-card">
+              <div class="team-avatar-circle">AV</div>
+              <div class="team-member-name">Amay Vikram Singh</div>
+              <div class="team-member-role">Founding Research & Neural Defense Architecture Lead</div>
+            </div>
+
+            <div class="team-profile-card">
+              <div class="team-avatar-circle">AS</div>
+              <div class="team-member-name">Anshuman</div>
+              <div class="team-member-role">Lead Distributed Systems & High-Velocity Telemetry Pipeline</div>
+            </div>
+
+            <div class="team-profile-card">
+              <div class="team-avatar-circle">AK</div>
+              <div class="team-member-name">Ankit</div>
+              <div class="team-member-role">Lead Behavioral AI & Knowledge Graph Specialist</div>
+            </div>
+
+            <div class="team-profile-card">
+              <div class="team-avatar-circle">AA</div>
+              <div class="team-member-name">Aaryan</div>
+              <div class="team-member-role">Lead Adversary Emulation & Autonomous Response Engine</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background: var(--bg-app); padding: 1.15rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+          <h4 style="font-size: 0.88rem; font-weight: 700; color: #ffffff; margin-bottom: 0.5rem;">
+            Technical Specifications & Performance
+          </h4>
+          <ul style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.7; padding-left: 1.25rem;">
+            <li><strong>Model Parameters:</strong> Veccna Synapse-X (17.4 Billion Active Weights).</li>
+            <li><strong>Context Window:</strong> 2,000,000 Native Tokens with needle-in-a-haystack recall at 99.8%.</li>
+            <li><strong>Training Dataset:</strong> 15 Trillion multimodal tokens across code, science, reasoning, and synthetic adversary traces.</li>
+            <li><strong>Ergonomic Dark Slate Theme:</strong> Strictly near-black (<code class="font-mono">#09090B</code>, <code class="font-mono">#0F172A</code>) to prevent eye fatigue during continuous use, completely avoiding harsh pure black (<code class="font-mono">#000000</code>).</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/script.js"></script>
+</body>
+</html>
