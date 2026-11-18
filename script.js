@@ -493,7 +493,7 @@ function handleSendPrompt() {
   // Create Streaming Placeholder
   const aiMessagePlaceholder = {
     role: 'model',
-    thinking: state.deepThinkingEnabled ? `Analyzing query, evaluating context across 2M token window, synthesizing structured reasoning...` : null,
+    thinking: state.deepThinkingEnabled ? `Analyzing query, evaluating multimodal context, synthesizing structured reasoning...` : null,
     text: ''
   };
   chat.messages.push(aiMessagePlaceholder);
@@ -804,7 +804,7 @@ window.askInteractiveHelp = function(topic) {
       1. Click the <strong>[+ Upload]</strong> pill button in the bottom prompt bar.<br>
       2. Select any image, PDF, code file (<code>.py</code>, <code>.js</code>, <code>.json</code>), or text document.<br>
       3. Your file appears as a removable preview tag. Type your instruction and press Enter.<br>
-      4. Veccna AI analyzes the contents across its 2M token context window.
+      4. Veccna AI analyzes the contents with high-throughput multimodal intelligence.
     `;
   } else if (topic.includes('Thinking')) {
     title.innerHTML = '<i class="fas fa-brain" style="color: #a855f7;"></i> Deep Thinking Mode';
