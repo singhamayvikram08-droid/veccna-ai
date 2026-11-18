@@ -361,16 +361,19 @@ function createNewChat() {
 // --- Active Chat View Rendering ---
 function renderActiveChat() {
   const currentChat = state.chats.find(c => c.id === state.activeChatId);
+  const bottomSpacer = document.getElementById('chatBottomSpacer');
   if (!currentChat || currentChat.messages.length === 0) {
     welcomeHero.style.display = 'flex';
     messagesContainer.style.display = 'none';
     messagesContainer.innerHTML = '';
+    if (bottomSpacer) bottomSpacer.style.display = 'none';
     chatScrollView.classList.add('no-scroll');
     chatScrollView.scrollTop = 0;
   } else {
     welcomeHero.style.display = 'none';
     messagesContainer.style.display = 'flex';
     messagesContainer.innerHTML = currentChat.messages.map(msg => renderMessageRow(msg)).join('');
+    if (bottomSpacer) bottomSpacer.style.display = 'block';
     chatScrollView.classList.remove('no-scroll');
     scrollToBottom();
   }
@@ -533,16 +536,23 @@ window.stopGenerating = function() {
   showToast('Response generation stopped.', 'info');
 };
 
-function scrollToBottom() {
+function scrollToBottom(smooth = false) {
   setTimeout(() => {
-    chatScrollView.scrollTop = chatScrollView.scrollHeight;
+    if (!chatScrollView) return;
+    const target = chatScrollView.scrollHeight;
+    if (smooth) {
+      chatScrollView.scrollTo({ top: target, behavior: 'smooth' });
+    } else {
+      chatScrollView.scrollTop = target;
+    }
   }, 30);
 }
 
 function maybeAutoScroll() {
+  if (!chatScrollView) return;
   const distFromBottom = chatScrollView.scrollHeight - chatScrollView.scrollTop - chatScrollView.clientHeight;
-  if (distFromBottom < 160) {
-    chatScrollView.scrollTop = chatScrollView.scrollHeight;
+  if (distFromBottom < 220) {
+    scrollToBottom(false);
   }
 }
 
@@ -775,7 +785,7 @@ function initScrollToBottom() {
 
   chatScrollView.addEventListener('scroll', () => {
     const distFromBottom = chatScrollView.scrollHeight - chatScrollView.scrollTop - chatScrollView.clientHeight;
-    if (distFromBottom > 160) {
+    if (distFromBottom > 220) {
       btn.classList.add('visible');
     } else {
       btn.classList.remove('visible');
@@ -784,10 +794,7 @@ function initScrollToBottom() {
 
   btn.addEventListener('click', () => {
     playSound('click');
-    chatScrollView.scrollTo({
-      top: chatScrollView.scrollHeight,
-      behavior: 'smooth'
-    });
+    scrollToBottom(true);
   });
 }
 
