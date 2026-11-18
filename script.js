@@ -6,7 +6,24 @@
  */
 
 // --- Global Application State ---
+const savedUser = localStorage.getItem('veccna_user');
+let initialUser = {
+  isLoggedIn: true,
+  name: 'Amay Vikram Singh',
+  email: 'singhamayvikram08@gmail.com',
+  initials: 'AV',
+  tier: 'Veccna Pro 2.5'
+};
+if (savedUser) {
+  try {
+    initialUser = JSON.parse(savedUser);
+  } catch (e) {
+    console.error('Error parsing stored user:', e);
+  }
+}
+
 const state = {
+  user: initialUser,
   currentModel: 'Veccna 2.5 Pro (Thinking)',
   activeChatId: 'chat-1',
   deepThinkingEnabled: true,
@@ -599,10 +616,141 @@ window.closeModelModal = function() {
   modelModal.classList.remove('open');
 };
 
+// --- Toast Notifications ---
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `
+    <i class="${type === 'success' ? 'fas fa-check-circle' : 'fas fa-info-circle'}" style="color: ${type === 'success' ? '#10b981' : 'var(--sky-bright)'}"></i>
+    <span>${message}</span>
+  `;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(10px)';
+    toast.style.transition = 'all 0.25s ease';
+    setTimeout(() => toast.remove(), 250);
+  }, 3500);
+}
+window.showToast = showToast;
+
+// --- Authentication Engine (Login & Logout) ---
+function initAuth() {
+  const avatarBtn = document.getElementById('userAvatarBtn');
+  const dropdown = document.getElementById('userProfileDropdown');
+
+  if (avatarBtn && dropdown) {
+    avatarBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      playSound('click');
+      dropdown.classList.toggle('open');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!dropdown.contains(e.target) && !avatarBtn.contains(e.target)) {
+        dropdown.classList.remove('open');
+      }
+    });
+  }
+
+  renderAuthState();
+}
+
+function renderAuthState() {
+  const loginBtn = document.getElementById('headerLoginBtn');
+  const profileWrapper = document.getElementById('userProfileWrapper');
+  const avatarInitials = document.getElementById('userAvatarInitials');
+  const dropAvatar = document.getElementById('dropdownAvatarInitials');
+  const dropName = document.getElementById('dropdownUserName');
+  const dropEmail = document.getElementById('dropdownUserEmail');
+  const welcomeGreeting = document.querySelector('.welcome-greeting');
+
+  if (state.user && state.user.isLoggedIn) {
+    if (loginBtn) loginBtn.style.display = 'none';
+    if (profileWrapper) profileWrapper.style.display = 'block';
+
+    const initials = state.user.initials || getInitials(state.user.name || 'User');
+    if (avatarInitials) avatarInitials.innerText = initials;
+    if (dropAvatar) dropAvatar.innerText = initials;
+    if (dropName) dropName.innerText = state.user.name || 'User';
+    if (dropEmail) dropEmail.innerText = state.user.email || '';
+
+    if (welcomeGreeting) {
+      const firstName = (state.user.name || 'Amay').split(' ')[0];
+      welcomeGreeting.innerHTML = `Hello, ${firstName} <span class="gradient-text">How can Veccna help you today?</span>`;
+    }
+  } else {
+    if (loginBtn) loginBtn.style.display = 'inline-flex';
+    if (profileWrapper) profileWrapper.style.display = 'none';
+
+    if (welcomeGreeting) {
+      welcomeGreeting.innerHTML = `Welcome to Veccna <span class="gradient-text">How can I help you today?</span>`;
+    }
+  }
+}
+
+function getInitials(name) {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return name.substring(0, 2).toUpperCase();
+}
+
+window.handleLogout = function() {
+  playSound('click');
+  const dropdown = document.getElementById('userProfileDropdown');
+  if (dropdown) dropdown.classList.remove('open');
+
+  state.user = { isLoggedIn: false };
+  localStorage.setItem('veccna_user', JSON.stringify(state.user));
+  renderAuthState();
+  showToast('You have been signed out of Veccna AI', 'info');
+};
+
+window.openAuthModal = function() {
+  playSound('click');
+  const modal = document.getElementById('authModal');
+  if (modal) modal.classList.add('open');
+};
+
+window.closeAuthModal = function() {
+  playSound('click');
+  const modal = document.getElementById('authModal');
+  if (modal) modal.classList.remove('open');
+};
+
+window.quickLogin = function(name, email) {
+  playSound('receive');
+  state.user = {
+    isLoggedIn: true,
+    name: name,
+    email: email,
+    initials: getInitials(name),
+    tier: 'Veccna Pro 2.5'
+  };
+  localStorage.setItem('veccna_user', JSON.stringify(state.user));
+  renderAuthState();
+  closeAuthModal();
+  showToast(`Welcome back, ${name}!`, 'success');
+};
+
+window.handleEmailAuth = function(event) {
+  event.preventDefault();
+  const emailInput = document.getElementById('authEmailInput');
+  const email = emailInput ? emailInput.value.trim() : 'user@veccna.ai';
+  let name = email.split('@')[0];
+  name = name.charAt(0).toUpperCase() + name.slice(1);
+  quickLogin(name, email);
+};
+
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
   initSidebar();
   initPromptControls();
   initModelSelector();
+  initAuth();
   renderActiveChat();
 });

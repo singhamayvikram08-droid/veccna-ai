@@ -126,13 +126,65 @@
         </div>
 
         <div class="header-right">
-          <button class="icon-action-btn" title="Share Conversation" onclick="navigator.clipboard.writeText(window.location.href); alert('Chat link copied!')">
+          <button class="icon-action-btn" title="Share Conversation" onclick="navigator.clipboard.writeText(window.location.href); showToast('Chat link copied to clipboard!', 'info')">
             <i class="fas fa-share-nodes"></i>
           </button>
           <button class="icon-action-btn" title="Model Info" onclick="openModelModal()">
             <i class="fas fa-circle-info"></i>
           </button>
-          <div class="user-avatar" title="User Profile">AV</div>
+
+          <!-- User Authentication Section (Dynamic Login / Logout) -->
+          <div class="user-auth-section" id="userAuthSection">
+            <!-- Logged Out Button -->
+            <button class="btn-signin" id="headerLoginBtn" onclick="openAuthModal()" style="display: none;">
+              <i class="fas fa-arrow-right-to-bracket"></i>
+              <span>Sign in</span>
+            </button>
+
+            <!-- Logged In Avatar & Profile Dropdown -->
+            <div class="user-profile-wrapper" id="userProfileWrapper">
+              <button class="user-avatar-btn" id="userAvatarBtn" title="Account settings">
+                <span class="user-avatar-initials" id="userAvatarInitials">AV</span>
+                <span class="avatar-status-dot"></span>
+              </button>
+
+              <!-- Profile Dropdown Menu -->
+              <div class="user-profile-dropdown" id="userProfileDropdown">
+                <div class="dropdown-user-header">
+                  <div class="dropdown-avatar" id="dropdownAvatarInitials">AV</div>
+                  <div class="dropdown-user-meta">
+                    <div class="dropdown-user-name" id="dropdownUserName">Amay Vikram Singh</div>
+                    <div class="dropdown-user-email" id="dropdownUserEmail">singhamayvikram08@gmail.com</div>
+                    <span class="user-tier-badge"><i class="fas fa-bolt"></i> Veccna Pro 2.5</span>
+                  </div>
+                </div>
+
+                <div class="dropdown-divider"></div>
+
+                <div class="dropdown-menu-list">
+                  <button class="dropdown-item" onclick="openModelModal()">
+                    <i class="fas fa-microchip"></i>
+                    <span>Model Architecture</span>
+                  </button>
+                  <button class="dropdown-item" onclick="createNewChat()">
+                    <i class="fas fa-pen-to-square"></i>
+                    <span>New Conversation</span>
+                  </button>
+                  <a href="/privacy.html" class="dropdown-item">
+                    <i class="fas fa-shield-halved"></i>
+                    <span>Privacy & Security</span>
+                  </a>
+                </div>
+
+                <div class="dropdown-divider"></div>
+
+                <button class="dropdown-logout-btn" id="logoutBtn" onclick="handleLogout()">
+                  <i class="fas fa-arrow-right-from-bracket"></i>
+                  <span>Sign out</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -319,6 +371,82 @@
       </div>
     </div>
   </div>
+
+  <!-- ==================== LOGIN / AUTHENTICATION MODAL ==================== -->
+  <div class="modal-backdrop" id="authModal">
+    <div class="modal-box auth-modal-box">
+      <div class="modal-header-bar">
+        <div class="modal-title-text">
+          <svg class="veccna-logo-svg" viewBox="0 0 100 100" fill="none" style="width: 22px; height: 22px;">
+            <path d="M16 18 L50 86 L84 18 L68 18 L50 60 L32 18 Z" fill="url(#authLogoGrad)" />
+            <path d="M36 24 L50 56 L64 24 L56 24 L50 40 L44 24 Z" fill="url(#authInnerGrad)" />
+            <polygon points="50,22 55,30 50,38 45,30" fill="#FFFFFF" />
+            <circle cx="24" cy="18" r="3.5" fill="#38BDF8" />
+            <circle cx="76" cy="18" r="3.5" fill="#EC4899" />
+            <circle cx="50" cy="86" r="3" fill="#6366F1" />
+            <defs>
+              <linearGradient id="authLogoGrad" x1="15" y1="15" x2="85" y2="85" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#38BDF8" />
+                <stop offset="50%" stop-color="#6366F1" />
+                <stop offset="100%" stop-color="#EC4899" />
+              </linearGradient>
+              <linearGradient id="authInnerGrad" x1="85" y1="15" x2="15" y2="85" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#06B6D4" />
+                <stop offset="100%" stop-color="#8B5CF6" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <span>Sign in to Veccna AI</span>
+        </div>
+        <button class="icon-action-btn" onclick="closeAuthModal()"><i class="fas fa-times"></i></button>
+      </div>
+
+      <div class="auth-modal-body">
+        <p class="auth-welcome-text">
+          Sign in to access your saved multi-turn conversations, 2M token context window, and custom model settings.
+        </p>
+
+        <!-- 1-Click Social Logins -->
+        <div class="social-login-group">
+          <button class="btn-social-login" onclick="quickLogin('Amay Vikram Singh', 'singhamayvikram08@gmail.com')">
+            <i class="fab fa-google" style="color: #ea4335;"></i>
+            <span>Continue as Amay Vikram Singh</span>
+          </button>
+          <button class="btn-social-login" onclick="quickLogin('GitHub User', 'developer@github.com')">
+            <i class="fab fa-github"></i>
+            <span>Continue with GitHub</span>
+          </button>
+        </div>
+
+        <div class="auth-divider">
+          <span>or sign in with email</span>
+        </div>
+
+        <!-- Email & Password Form -->
+        <form class="auth-form" id="emailAuthForm" onsubmit="handleEmailAuth(event)">
+          <div class="form-group">
+            <label class="form-label" for="authEmailInput">Email address</label>
+            <input type="email" class="form-input" id="authEmailInput" placeholder="name@company.com" required value="singhamayvikram08@gmail.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="authPasswordInput">Password</label>
+            <input type="password" class="form-input" id="authPasswordInput" placeholder="••••••••" required value="password123">
+          </div>
+          <button type="submit" class="btn-submit-auth">
+            <span>Sign In</span>
+            <i class="fas fa-arrow-right"></i>
+          </button>
+        </form>
+
+        <div class="auth-footer-note">
+          By continuing, you agree to our <a href="/terms.html">Terms of Service</a> and <a href="/privacy.html">Privacy Policy</a>.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
 
   <script type="module" src="/script.js"></script>
 </body>
