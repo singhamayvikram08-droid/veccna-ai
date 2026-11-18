@@ -274,6 +274,47 @@
                 </button>
                 <input type="file" id="fileInput" style="display: none;" accept="image/*,.pdf,.txt,.py,.js,.json">
 
+                <!-- Model Changing Option Beside Upload Area -->
+                <div class="chat-model-menu-wrapper" id="chatModelMenuWrapper">
+                  <button type="button" class="tool-pill-btn model-tool-pill" id="chatModelPillBtn" title="Change AI Model">
+                    <i class="fas fa-sparkles" style="color: var(--sky-bright);"></i>
+                    <span id="chatModelPillLabel">Veccna 2.5 Pro</span>
+                    <i class="fas fa-chevron-down" style="font-size: 0.62rem; color: var(--text-dim); margin-left: 2px;"></i>
+                  </button>
+
+                  <div class="chat-model-popover-menu" id="chatModelPopoverMenu">
+                    <div class="chat-popover-opt active" data-model="Veccna 2.5 Pro (Thinking)">
+                      <div class="popover-opt-content">
+                        <div class="popover-opt-title">
+                          <span>Veccna 2.5 Pro</span>
+                          <span class="model-badge-tag">Thinking</span>
+                        </div>
+                        <div class="popover-opt-sub">Deep cognitive reasoning & advanced logic</div>
+                      </div>
+                    </div>
+
+                    <div class="chat-popover-opt" data-model="Veccna 2.5 Flash">
+                      <div class="popover-opt-content">
+                        <div class="popover-opt-title">
+                          <span>Veccna 2.5 Flash</span>
+                          <span class="model-badge-tag">Fast</span>
+                        </div>
+                        <div class="popover-opt-sub">Blazing speed for everyday tasks</div>
+                      </div>
+                    </div>
+
+                    <div class="chat-popover-opt" data-model="Veccna Deep Research">
+                      <div class="popover-opt-content">
+                        <div class="popover-opt-title">
+                          <span>Veccna Deep Research</span>
+                          <span class="model-badge-tag">Research</span>
+                        </div>
+                        <div class="popover-opt-sub">Multi-step autonomous deep research</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <button class="tool-pill-btn active" id="thinkToggleBtn" title="Toggle Deep Reasoning">
                   <i class="fas fa-brain"></i>
                   <span>Deep Think</span>

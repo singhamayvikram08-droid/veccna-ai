@@ -281,10 +281,13 @@ function renderActiveChat() {
     welcomeHero.style.display = 'flex';
     messagesContainer.style.display = 'none';
     messagesContainer.innerHTML = '';
+    chatScrollView.classList.add('no-scroll');
+    chatScrollView.scrollTop = 0;
   } else {
     welcomeHero.style.display = 'none';
     messagesContainer.style.display = 'flex';
     messagesContainer.innerHTML = currentChat.messages.map(msg => renderMessageRow(msg)).join('');
+    chatScrollView.classList.remove('no-scroll');
     scrollToBottom();
   }
 }
@@ -814,29 +817,74 @@ if __name__ == "__main__":
   streamLocalText(fullResponse, placeholder);
 }
 
-// --- Model Selector Dropdown ---
+// --- Model Selector Dropdown (Top Header & Chat Input Dock) ---
+function setModel(name) {
+  state.currentModel = name;
+  let shortName = 'Veccna 2.5 Pro';
+  if (name.includes('Flash')) shortName = 'Veccna 2.5 Flash';
+  else if (name.includes('Research')) shortName = 'Deep Research';
+
+  if (selectedModelName) selectedModelName.innerText = name;
+  const chatPillLabel = document.getElementById('chatModelPillLabel');
+  if (chatPillLabel) chatPillLabel.innerText = shortName;
+
+  document.querySelectorAll('.model-option').forEach(o => {
+    o.classList.toggle('active-model', o.getAttribute('data-model') === name);
+  });
+
+  document.querySelectorAll('.chat-popover-opt').forEach(o => {
+    o.classList.toggle('active', o.getAttribute('data-model') === name);
+  });
+}
+
 function initModelSelector() {
-  modelSelector.addEventListener('click', (e) => {
-    e.stopPropagation();
-    playSound('click');
-    modelDropdown.classList.toggle('open');
-  });
+  const chatModelPillBtn = document.getElementById('chatModelPillBtn');
+  const chatModelPopoverMenu = document.getElementById('chatModelPopoverMenu');
 
-  document.addEventListener('click', () => {
-    modelDropdown.classList.remove('open');
-  });
-
-  document.querySelectorAll('.model-option').forEach(opt => {
-    opt.addEventListener('click', (e) => {
+  // Top Header Model Selector
+  if (modelSelector && modelDropdown) {
+    modelSelector.addEventListener('click', (e) => {
       e.stopPropagation();
       playSound('click');
-      document.querySelectorAll('.model-option').forEach(o => o.classList.remove('active-model'));
-      opt.classList.add('active-model');
-      const name = opt.getAttribute('data-model');
-      state.currentModel = name;
-      selectedModelName.innerText = name;
-      modelDropdown.classList.remove('open');
+      modelDropdown.classList.toggle('open');
+      if (chatModelPopoverMenu) chatModelPopoverMenu.classList.remove('open');
     });
+
+    document.querySelectorAll('.model-option').forEach(opt => {
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        playSound('click');
+        const name = opt.getAttribute('data-model');
+        setModel(name);
+        modelDropdown.classList.remove('open');
+      });
+    });
+  }
+
+  // Chat Input Dock Model Selector Beside Upload
+  if (chatModelPillBtn && chatModelPopoverMenu) {
+    chatModelPillBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      playSound('click');
+      chatModelPopoverMenu.classList.toggle('open');
+      if (modelDropdown) modelDropdown.classList.remove('open');
+    });
+
+    document.querySelectorAll('.chat-popover-opt').forEach(opt => {
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        playSound('click');
+        const name = opt.getAttribute('data-model');
+        setModel(name);
+        chatModelPopoverMenu.classList.remove('open');
+      });
+    });
+  }
+
+  // Close dropdowns on outside click
+  document.addEventListener('click', () => {
+    if (modelDropdown) modelDropdown.classList.remove('open');
+    if (chatModelPopoverMenu) chatModelPopoverMenu.classList.remove('open');
   });
 }
 
