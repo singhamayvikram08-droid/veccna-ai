@@ -239,7 +239,7 @@ function initSidebar() {
 
 function renderChatHistory() {
   chatHistoryList.innerHTML = state.chats.map(chat => `
-    <div class="chat-history-item ${chat.id === state.activeChatId ? 'active' : ''}" onclick="selectChat('${chat.id}')">
+    <div class="chat-history-item ${chat.id === state.activeChatId ? 'active' : ''}" onclick="selectChat('${chat.id}')" title="${chat.title}">
       <i class="far fa-message"></i>
       <span class="chat-title-text">${chat.title}</span>
     </div>

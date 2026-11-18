@@ -306,8 +306,27 @@ a {
   text-overflow: ellipsis;
 }
 
+/* When sidebar is collapsed: Only ONE active message box appears */
 .sidebar.collapsed .chat-history-item {
+  display: none !important;
+}
+
+.sidebar.collapsed .chat-history-item.active {
+  display: flex !important;
   justify-content: center;
+  align-items: center;
+  padding: 0.6rem;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  margin: 0 auto;
+}
+
+/* Fallback: if no active item, show only the first child */
+.sidebar.collapsed .chat-history-list:not(:has(.active)) .chat-history-item:first-child {
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
   padding: 0.6rem;
   border-radius: 50%;
   width: 40px;
