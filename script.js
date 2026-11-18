@@ -746,6 +746,88 @@ window.handleEmailAuth = function(event) {
   quickLogin(name, email);
 };
 
+// --- Settings, Activity & Help Modals ---
+window.openSettingsModal = function() {
+  playSound('click');
+  const modal = document.getElementById('settingsModal');
+  if (modal) modal.classList.add('open');
+};
+
+window.closeSettingsModal = function() {
+  playSound('click');
+  const modal = document.getElementById('settingsModal');
+  if (modal) modal.classList.remove('open');
+};
+
+window.openActivityModal = function() {
+  playSound('click');
+  const modal = document.getElementById('activityModal');
+  if (modal) {
+    const totalCount = document.getElementById('totalPromptsNum');
+    if (totalCount) totalCount.innerText = state.chats.length;
+    modal.classList.add('open');
+  }
+};
+
+window.closeActivityModal = function() {
+  playSound('click');
+  const modal = document.getElementById('activityModal');
+  if (modal) modal.classList.remove('open');
+};
+
+window.openHelpModal = function() {
+  playSound('click');
+  const modal = document.getElementById('helpModal');
+  if (modal) modal.classList.add('open');
+};
+
+window.closeHelpModal = function() {
+  playSound('click');
+  const modal = document.getElementById('helpModal');
+  if (modal) modal.classList.remove('open');
+};
+
+window.toggleSoundSetting = function(enabled) {
+  state.soundEnabled = enabled;
+  if (enabled) playSound('click');
+  showToast(`Interface sounds ${enabled ? 'enabled' : 'muted'}`, 'info');
+};
+
+window.toggleThinkingSetting = function(enabled) {
+  state.deepThinkingEnabled = enabled;
+  const btn = document.getElementById('thinkToggleBtn');
+  if (btn) btn.classList.toggle('active', enabled);
+  showToast(`Deep thinking ${enabled ? 'enabled' : 'disabled'} by default`, 'info');
+};
+
+window.toggleSearchSetting = function(enabled) {
+  state.webSearchEnabled = enabled;
+  const btn = document.getElementById('searchToggleBtn');
+  if (btn) btn.classList.toggle('active', enabled);
+  showToast(`Web grounding ${enabled ? 'enabled' : 'disabled'} by default`, 'info');
+};
+
+window.clearAllChats = function() {
+  if (confirm('Are you sure you want to delete all conversations? This cannot be undone.')) {
+    state.chats = [];
+    createNewChat();
+    closeSettingsModal();
+    showToast('All chat history cleared', 'info');
+  }
+};
+
+// Global Keyboard Shortcuts (Cmd/Ctrl + K, Cmd/Ctrl + B)
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    createNewChat();
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
+    e.preventDefault();
+    if (sidebar) sidebar.classList.toggle('collapsed');
+  }
+});
+
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
   initSidebar();

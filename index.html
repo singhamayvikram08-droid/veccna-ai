@@ -70,16 +70,24 @@
         </div>
       </div>
 
-      <!-- Sidebar Footer -->
+      <!-- Sidebar Footer (Bottom Left) -->
       <div class="sidebar-footer">
-        <button class="footer-btn" onclick="openModelModal()">
-          <i class="fas fa-circle-info"></i>
-          <span>About Veccna AI</span>
+        <button class="footer-btn" onclick="openSettingsModal()" title="Settings">
+          <i class="fas fa-gear"></i>
+          <span>Settings</span>
         </button>
-        <a href="/privacy.html" class="footer-btn">
-          <i class="fas fa-shield-halved"></i>
-          <span>Privacy & Terms</span>
-        </a>
+        <button class="footer-btn" onclick="openActivityModal()" title="Activity & Metrics">
+          <i class="fas fa-clock-rotate-left"></i>
+          <span>Activity</span>
+        </button>
+        <button class="footer-btn" onclick="openHelpModal()" title="Help & Shortcuts">
+          <i class="fas fa-circle-question"></i>
+          <span>Help</span>
+        </button>
+        <div class="sidebar-status-pill">
+          <span class="status-live-dot"></span>
+          <span class="status-live-text">Veccna 2.5 • Operational</span>
+        </div>
       </div>
     </aside>
 
@@ -433,6 +441,162 @@
 
         <div class="auth-footer-note">
           By continuing, you agree to our <a href="/terms.html">Terms of Service</a> and <a href="/privacy.html">Privacy Policy</a>.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SETTINGS MODAL ==================== -->
+  <div class="modal-backdrop" id="settingsModal">
+    <div class="modal-box" style="width: 520px;">
+      <div class="modal-header-bar">
+        <div class="modal-title-text">
+          <i class="fas fa-gear" style="color: var(--sky-bright);"></i>
+          <span>Settings</span>
+        </div>
+        <button class="icon-action-btn" onclick="closeSettingsModal()"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body-container" style="gap: 1.25rem;">
+        <div class="settings-group">
+          <div class="settings-group-title">Preferences</div>
+          
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Audio Effects</span>
+              <span class="setting-desc">Play subtle interface sounds on send and receive</span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="settingSoundToggle" checked onchange="toggleSoundSetting(this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Deep Thinking by Default</span>
+              <span class="setting-desc">Enable extended reasoning chain on every prompt</span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="settingThinkToggle" checked onchange="toggleThinkingSetting(this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Web Grounding</span>
+              <span class="setting-desc">Search the web for up-to-date real-time context</span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="settingSearchToggle" checked onchange="toggleSearchSetting(this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <div class="settings-group-title">Data & Privacy</div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Clear All Conversations</span>
+              <span class="setting-desc">Delete local chat history from this browser</span>
+            </div>
+            <button class="btn-danger-outline" onclick="clearAllChats()">
+              <i class="far fa-trash-can"></i>
+              <span>Clear History</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== ACTIVITY & METRICS MODAL ==================== -->
+  <div class="modal-backdrop" id="activityModal">
+    <div class="modal-box" style="width: 580px;">
+      <div class="modal-header-bar">
+        <div class="modal-title-text">
+          <i class="fas fa-clock-rotate-left" style="color: var(--sky-bright);"></i>
+          <span>Activity & Session Telemetry</span>
+        </div>
+        <button class="icon-action-btn" onclick="closeActivityModal()"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body-container" style="gap: 1.25rem;">
+        <div class="activity-stats-grid">
+          <div class="activity-stat-card">
+            <div class="activity-stat-num" id="totalPromptsNum">4</div>
+            <div class="activity-stat-label">Conversations</div>
+          </div>
+          <div class="activity-stat-card">
+            <div class="activity-stat-num">2,000,000</div>
+            <div class="activity-stat-label">Token Context Window</div>
+          </div>
+          <div class="activity-stat-card">
+            <div class="activity-stat-num" style="color: #10b981;">99.8%</div>
+            <div class="activity-stat-label">Model Availability</div>
+          </div>
+          <div class="activity-stat-card">
+            <div class="activity-stat-num" style="color: var(--sky-bright);">Sub-100ms</div>
+            <div class="activity-stat-label">First-Token Latency</div>
+          </div>
+        </div>
+        <div class="activity-recent-box">
+          <div style="font-size: 0.78rem; font-weight: 700; color: #ffffff; margin-bottom: 0.5rem;">Recent Session Log</div>
+          <div class="activity-log-entry">
+            <span class="log-time">Now</span>
+            <span class="log-text">Session active with <strong>Veccna 2.5 Pro (Thinking)</strong></span>
+          </div>
+          <div class="activity-log-entry">
+            <span class="log-time">5m ago</span>
+            <span class="log-text">Synthesized multi-agent Python coordination pipeline</span>
+          </div>
+          <div class="activity-log-entry">
+            <span class="log-time">12m ago</span>
+            <span class="log-text">Authenticated as <strong>Amay Vikram Singh</strong></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== HELP & SHORTCUTS MODAL ==================== -->
+  <div class="modal-backdrop" id="helpModal">
+    <div class="modal-box" style="width: 540px;">
+      <div class="modal-header-bar">
+        <div class="modal-title-text">
+          <i class="fas fa-circle-question" style="color: var(--sky-bright);"></i>
+          <span>Help & Shortcuts</span>
+        </div>
+        <button class="icon-action-btn" onclick="closeHelpModal()"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body-container" style="gap: 1.25rem;">
+        <div>
+          <div class="settings-group-title">Keyboard Shortcuts</div>
+          <div class="shortcut-row">
+            <span class="shortcut-desc">Send message</span>
+            <kbd class="shortcut-kbd">Enter</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-desc">New line in prompt</span>
+            <kbd class="shortcut-kbd">Shift + Enter</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-desc">New conversation</span>
+            <kbd class="shortcut-kbd">Cmd / Ctrl + K</kbd>
+          </div>
+          <div class="shortcut-row">
+            <span class="shortcut-desc">Toggle sidebar</span>
+            <kbd class="shortcut-kbd">Cmd / Ctrl + B</kbd>
+          </div>
+        </div>
+
+        <div>
+          <div class="settings-group-title">Pro Tips</div>
+          <ul style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.6; padding-left: 1.25rem;">
+            <li>Click <strong>Upload</strong> to attach code files, JSON datasets, or images.</li>
+            <li>Enable <strong>Deep Think</strong> for multi-step reasoning, mathematical derivations, or architecture plans.</li>
+            <li>Toggle <strong>Search</strong> to ground outputs with live web intelligence.</li>
+          </ul>
         </div>
       </div>
     </div>

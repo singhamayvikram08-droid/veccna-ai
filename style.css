@@ -1522,6 +1522,206 @@ a {
   border-left: 4px solid var(--sky-bright);
 }
 
+/* ==============================================================================
+   SIDEBAR FOOTER STATUS PILL & NEW MODALS (SETTINGS, ACTIVITY, HELP)
+   ============================================================================== */
+.sidebar-status-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  margin-top: 0.35rem;
+  border-radius: var(--radius-full);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.status-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.7);
+  flex-shrink: 0;
+  animation: pulse-ring 2s infinite ease-in-out;
+}
+
+.sidebar.collapsed .sidebar-status-pill {
+  justify-content: center;
+  padding: 0.5rem;
+  width: 38px;
+  height: 38px;
+  margin: 0.25rem auto 0;
+  border-radius: 50%;
+}
+
+.sidebar.collapsed .status-live-text {
+  display: none;
+}
+
+/* Settings Modal & Toggles */
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.settings-group-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin-bottom: 0.25rem;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0.95rem;
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  gap: 1rem;
+}
+
+.setting-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.setting-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.setting-desc {
+  font-size: 0.74rem;
+  color: var(--text-dim);
+}
+
+.btn-danger-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: rgba(244, 63, 94, 0.08);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  color: var(--rose-accent);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-danger-outline:hover {
+  background: rgba(244, 63, 94, 0.2);
+  border-color: var(--rose-accent);
+}
+
+/* Activity Stats Grid */
+.activity-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.85rem;
+}
+
+.activity-stat-card {
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  text-align: center;
+}
+
+.activity-stat-num {
+  font-size: 1.45rem;
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+  color: #ffffff;
+}
+
+.activity-stat-label {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin-top: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.activity-recent-box {
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.activity-log-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.06);
+  padding-bottom: 0.4rem;
+}
+
+.activity-log-entry:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.log-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--sky-bright);
+  min-width: 45px;
+}
+
+.log-text {
+  color: var(--text-secondary);
+}
+
+/* Keyboard Shortcuts */
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.25rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.shortcut-row:last-child {
+  border-bottom: none;
+}
+
+.shortcut-desc {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.shortcut-kbd {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.72rem;
+  font-family: 'JetBrains Mono', monospace;
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.5);
+}
+
 /* Animations */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(6px); }
