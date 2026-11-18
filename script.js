@@ -1,4 +1,6 @@
 import { marked } from 'marked';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 
 /**
  * ==============================================================================
@@ -204,12 +206,31 @@ function formatMarkdown(text) {
     .replace(/def greet\(name\):[\s\S]*?print\(greet\([^)]*\)\)/gi, '')
     .replace(/💡\s*Quick Example/gi, '');
 
-  // Render LaTeX math formulas if KaTeX is loaded
-  if (typeof window !== 'undefined' && window.katex) {
+  // Render LaTeX math formulas via KaTeX (supporting both \[ \] / $$ $$ for display, and \( \) / $ $ for inline)
+  const katexRenderer = katex || (typeof window !== 'undefined' ? window.katex : null);
+  if (katexRenderer) {
+    // Display Math: \[ ... \]
+    cleanText = cleanText.replace(/\\\[([\s\S]+?)\\\]/g, (match, formula) => {
+      try {
+        return katexRenderer.renderToString(formula.trim(), { displayMode: true, throwOnError: false });
+      } catch (e) {
+        return match;
+      }
+    });
+
     // Display Math: $$ ... $$
     cleanText = cleanText.replace(/\$\$([\s\S]+?)\$\$/g, (match, formula) => {
       try {
-        return window.katex.renderToString(formula.trim(), { displayMode: true, throwOnError: false });
+        return katexRenderer.renderToString(formula.trim(), { displayMode: true, throwOnError: false });
+      } catch (e) {
+        return match;
+      }
+    });
+
+    // Inline Math: \( ... \)
+    cleanText = cleanText.replace(/\\\(([\s\S]+?)\\\)/g, (match, formula) => {
+      try {
+        return katexRenderer.renderToString(formula.trim(), { displayMode: false, throwOnError: false });
       } catch (e) {
         return match;
       }
@@ -218,7 +239,7 @@ function formatMarkdown(text) {
     // Inline Math: $ ... $
     cleanText = cleanText.replace(/\$([^\$\n]+?)\$/g, (match, formula) => {
       try {
-        return window.katex.renderToString(formula.trim(), { displayMode: false, throwOnError: false });
+        return katexRenderer.renderToString(formula.trim(), { displayMode: false, throwOnError: false });
       } catch (e) {
         return match;
       }
@@ -475,6 +496,7 @@ window.copyMessageText = function(btn) {
 };
 
 let activeAbortController = null;
+let localStreamInterval = null;
 
 function setGeneratingUI(isGen) {
   state.isGenerating = isGen;
@@ -486,15 +508,23 @@ function setGeneratingUI(isGen) {
   } else {
     sendPromptBtn.innerHTML = '<i class="fas fa-arrow-up"></i>';
     sendPromptBtn.classList.remove('generating');
-    if (promptInput && promptInput.value.trim().length === 0 && state.pendingAttachments.length === 0) {
+    if (promptInput && promptInput.value.trim().length === 0 && (!state.pendingAttachments || state.pendingAttachments.length === 0)) {
       sendPromptBtn.classList.remove('ready');
     }
     sendPromptBtn.title = 'Send Prompt';
     activeAbortController = null;
+    if (localStreamInterval) {
+      clearInterval(localStreamInterval);
+      localStreamInterval = null;
+    }
   }
 }
 
 window.stopGenerating = function() {
+  if (localStreamInterval) {
+    clearInterval(localStreamInterval);
+    localStreamInterval = null;
+  }
   if (activeAbortController) {
     activeAbortController.abort();
     activeAbortController = null;
@@ -901,6 +931,356 @@ window.exportChatJson = function() {
   closeShareModal();
 };
 
+function handleSendPrompt() {
+  const query = promptInput.value.trim();
+  const hasAttachments = state.pendingAttachments && state.pendingAttachments.length > 0;
+  if ((!query && !hasAttachments) || state.isGenerating) return;
+
+  playSound('send');
+  setGeneratingUI(true);
+
+  // Retrieve or create chat
+  let chat = state.chats.find(c => c.id === state.activeChatId);
+  if (!chat) {
+    createNewChat();
+    chat = state.chats[0];
+  }
+
+  // Update chat title if first message
+  if (chat.messages.length === 0) {
+    const titleText = query || (state.pendingAttachments[0]?.name || 'New conversation');
+    chat.title = titleText.length > 32 ? titleText.substring(0, 32) + '...' : titleText;
+    renderChatHistory();
+  }
+
+  // Add User Message with cloned pending attachments
+  const userMsgId = `msg-user-${Date.now()}`;
+  chat.messages.push({
+    id: userMsgId,
+    role: 'user',
+    text: query,
+    attachments: [...state.pendingAttachments]
+  });
+
+  // Clear inputs
+  promptInput.value = '';
+  promptInput.style.height = 'auto';
+  state.pendingAttachments = [];
+  renderAttachments();
+
+  // Create Streaming AI Placeholder
+  const msgId = `msg-${Date.now()}`;
+  const aiMessagePlaceholder = {
+    id: msgId,
+    role: 'model',
+    thinking: state.deepThinkingEnabled ? 'Analyzing query, evaluating cognitive context...' : null,
+    isThinking: state.deepThinkingEnabled,
+    isOpen: false, // Unexpanded by default
+    text: ''
+  };
+  chat.messages.push(aiMessagePlaceholder);
+  renderActiveChat();
+
+  // Generate intelligent response via live OpenRouter API
+  generateAiResponse(query, aiMessagePlaceholder, chat);
+}
+
+function isAskingAboutBotCreators(query) {
+  const q = (query || '').toLowerCase().trim();
+  return (
+    /\b(who\s+(created|made|built|developed|trained|engineered)\s+(you|veccna))\b/i.test(q) ||
+    /\b(who\s+are\s+(your|the)\s+(creators|developers|founders|engineers|authors))\b/i.test(q) ||
+    /\b(your\s+(creators|founders|engineering team|developers))\b/i.test(q) ||
+    /\b(who\s+is\s+your\s+(creator|developer|author|maker))\b/i.test(q) ||
+    /\b(tell\s+me\s+about\s+(the\s+)?(creators|founders|team)\s+(of\s+veccna|behind\s+veccna))\b/i.test(q) ||
+    /\b(who\s+trained\s+veccna)\b/i.test(q)
+  );
+}
+
+async function generateAiResponse(query, placeholder, chat) {
+  // Dual-Layer Attribution: Disclose training credits ONLY if explicitly asked about Veccna creators
+  if (isAskingAboutBotCreators(query)) {
+    placeholder.thinking = state.deepThinkingEnabled ? 'Retrieving neural model lineage & engineering provenance records...' : null;
+    const fullResponse = `**Veccna AI** was trained and engineered by the founding team:\n\n### 👥 Core Engineering Team:\n* **Amay Vikram Singh:** Founding Research & Neural Architecture Lead\n* **Anshuman:** Lead Distributed Systems & High-Velocity Telemetry Pipeline\n* **Ankit:** Lead Behavioral AI & Knowledge Graph Specialist\n* **Aaryan:** Lead Adversary Emulation & Autonomous Response Engine\n\n### ⚡ Foundation Specifications:\n* **Model Engine:** Veccna Synapse-X Transformer (17.4 Billion Parameters).\n* **Architecture:** Multi-Stage Attention with Low-Rank Adaptation & Direct Preference Optimization (DPO).\n* **Design Language:** Ergonomic Dark Slate (\`#09090B\`, \`#0F172A\`) to prevent ocular fatigue.`;
+    streamLocalText(fullResponse, placeholder);
+    return;
+  }
+
+  let apiKey = state.openRouterKey || DEFAULT_OPENROUTER_KEY;
+  const requestedModel = MODEL_MAPPING[state.currentModel] || 'openrouter/free';
+
+  const systemPrompt = `You are Veccna AI, an intelligent, helpful, and highly articulate generative AI assistant modeled after Google Gemini and ChatGPT.
+You provide clear, comprehensive, well-structured, and insightful answers with markdown formatting (bullet points, bold text, code blocks with syntax highlighting and inline explanations, headers, comparison tables, and LaTeX math formatting like $a^2 + b^2 = c^2$ or display math $$...$$) whenever appropriate.
+When greeted with simple conversational greetings (e.g., "hi", "hello", "hey"), reply warmly, naturally, and concisely without dumping capability lists or canned code snippets like "def greet()".
+For educational, conceptual, coding, architecture, and analytical queries, provide thorough, high-quality, step-by-step explanations, code examples with inline comments, and time/space complexity when relevant.
+Attribution Rule: If and ONLY if the user explicitly asks who created, built, trained, or engineered you, state that you were trained and developed by Amay Vikram Singh, Anshuman, Ankit, and Aaryan. Otherwise, do NOT mention the training team unprompted.`;
+
+  const messagesPayload = [
+    { role: 'system', content: systemPrompt }
+  ];
+
+  // Include recent conversation context (last 6 messages)
+  const history = chat.messages.slice(0, -2);
+  for (const m of history.slice(-6)) {
+    if (m.text) {
+      messagesPayload.push({
+        role: m.role === 'model' ? 'assistant' : 'user',
+        content: m.text
+      });
+    }
+  }
+
+  // Handle current user query and any attachments
+  const userMsg = chat.messages[chat.messages.length - 2];
+  let promptText = query;
+  if (userMsg && userMsg.attachments && userMsg.attachments.length > 0) {
+    const textAttachments = userMsg.attachments.filter(a => !a.isImage && a.textContent);
+    if (textAttachments.length > 0) {
+      const docsContext = textAttachments.map(a => `[Attached Document: ${a.name}]\n${a.textContent}`).join('\n\n');
+      promptText = `${docsContext}\n\n${query || 'Please analyze the attached document(s).'}`;
+    }
+  }
+
+  if (userMsg && userMsg.attachments && userMsg.attachments.some(a => a.dataUrl && a.type && a.type.startsWith('image/'))) {
+    const contentParts = [{ type: 'text', text: promptText || 'Please analyze this image.' }];
+    for (const a of userMsg.attachments) {
+      if (a.dataUrl && a.type && a.type.startsWith('image/')) {
+        contentParts.push({
+          type: 'image_url',
+          image_url: { url: a.dataUrl }
+        });
+      }
+    }
+    messagesPayload.push({ role: 'user', content: contentParts });
+  } else {
+    messagesPayload.push({ role: 'user', content: promptText || 'Hello' });
+  }
+
+  const msgId = placeholder.id;
+  function getMsgElements() {
+    return {
+      thinkAcc: document.getElementById(`${msgId}-think`),
+      thinkContent: document.querySelector(`#${msgId}-think .thinking-content`),
+      thinkLabel: document.querySelector(`#${msgId}-think .think-label-text`),
+      thinkHeader: document.querySelector(`#${msgId}-think .thinking-header`),
+      thinkIcon: document.querySelector(`#${msgId}-think .fa-brain`),
+      contentElem: document.getElementById(`${msgId}-content`)
+    };
+  }
+
+  // Multi-tier candidate models for zero downtime
+  const modelsToAttempt = Array.from(new Set([
+    requestedModel,
+    'openrouter/free',
+    'nvidia/nemotron-3.5-lightning:free',
+    'liquid/lfm-3-1.7b:free'
+  ]));
+
+  let response = null;
+  activeAbortController = new AbortController();
+
+  for (const m of modelsToAttempt) {
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': window.location.origin || 'http://localhost:3002',
+          'X-Title': 'Veccna AI'
+        },
+        body: JSON.stringify({
+          model: m,
+          messages: messagesPayload,
+          stream: true
+        }),
+        signal: activeAbortController.signal
+      });
+
+      if (res.ok) {
+        response = res;
+        break;
+      } else if (res.status === 401 && apiKey !== DEFAULT_OPENROUTER_KEY && DEFAULT_OPENROUTER_KEY) {
+        console.warn('Custom API key unauthorized (401), falling back to default key...');
+        apiKey = DEFAULT_OPENROUTER_KEY;
+        state.openRouterKey = DEFAULT_OPENROUTER_KEY;
+        const retryRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': window.location.origin || 'http://localhost:3002',
+            'X-Title': 'Veccna AI'
+          },
+          body: JSON.stringify({
+            model: m,
+            messages: messagesPayload,
+            stream: true
+          }),
+          signal: activeAbortController.signal
+        });
+        if (retryRes.ok) {
+          response = retryRes;
+          break;
+        }
+      } else {
+        console.warn(`Model ${m} returned status ${res.status}, trying fallback model...`);
+      }
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        console.log('Stream request aborted by user');
+        setGeneratingUI(false);
+        placeholder.isThinking = false;
+        return;
+      }
+      console.warn(`Model ${m} network error:`, err);
+    }
+  }
+
+  if (!response || !response.ok) {
+    console.warn('All live API model attempts failed or offline, using intelligent synthesis.');
+    fallbackSimulate(query, placeholder, chat);
+    return;
+  }
+
+  try {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
+    let accumulatedText = '';
+    let accumulatedThinking = '';
+    let animFramePending = false;
+
+    function applyTargetedUpdate() {
+      let el = getMsgElements();
+
+      if (accumulatedThinking) {
+        placeholder.thinking = accumulatedThinking;
+        let thinkAcc = el.thinkAcc;
+        if (!thinkAcc && el.contentElem) {
+          const accDiv = document.createElement('div');
+          accDiv.className = 'thinking-accordion';
+          accDiv.id = `${msgId}-think`;
+          accDiv.innerHTML = `
+            <div class="thinking-header thinking-active" onclick="toggleThinkingAccordion(this)">
+              <span>
+                <i class="fas fa-brain fa-pulse"></i> 
+                <span class="think-label-text">Thinking...</span>
+              </span>
+              <i class="fas fa-chevron-down"></i>
+            </div>
+            <div class="thinking-content"></div>
+          `;
+          el.contentElem.parentNode.insertBefore(accDiv, el.contentElem);
+          thinkAcc = accDiv;
+          el = getMsgElements();
+        }
+        if (thinkAcc && state.deepThinkingEnabled) {
+          thinkAcc.style.display = 'block';
+        }
+        if (el.thinkContent) {
+          el.thinkContent.innerText = accumulatedThinking;
+        }
+        if (placeholder.isThinking && el.thinkLabel) {
+          el.thinkLabel.innerText = 'Thinking...';
+        }
+      }
+
+      if (accumulatedText) {
+        if (placeholder.isThinking) {
+          placeholder.isThinking = false;
+          if (el.thinkLabel) el.thinkLabel.innerText = 'Thinking Process';
+          if (el.thinkHeader) el.thinkHeader.classList.remove('thinking-active');
+          if (el.thinkIcon) el.thinkIcon.classList.remove('fa-pulse');
+        }
+        // If no reasoning tokens were generated at all, hide empty thinking box
+        if (!accumulatedThinking && el.thinkAcc) {
+          el.thinkAcc.style.display = 'none';
+        }
+        placeholder.text = accumulatedText;
+        if (el.contentElem) {
+          el.contentElem.innerHTML = formatMarkdown(accumulatedText);
+        }
+      }
+
+      scrollToBottom();
+      animFramePending = false;
+    }
+
+    function requestTargetedUpdate() {
+      if (!animFramePending) {
+        animFramePending = true;
+        requestAnimationFrame(applyTargetedUpdate);
+      }
+    }
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === 'data: [DONE]') continue;
+        if (trimmed.startsWith('data: ')) {
+          try {
+            const parsed = JSON.parse(trimmed.slice(6));
+            const delta = parsed.choices?.[0]?.delta;
+            if (delta?.reasoning) {
+              accumulatedThinking += delta.reasoning;
+              requestTargetedUpdate();
+            }
+            if (delta?.content) {
+              accumulatedText += delta.content;
+              requestTargetedUpdate();
+            }
+          } catch (e) {}
+        }
+      }
+    }
+
+    // Final paint ensure
+    applyTargetedUpdate();
+
+    // If content was empty but reasoning had text, promote reasoning to final content
+    if (!accumulatedText.trim()) {
+      if (accumulatedThinking.trim()) {
+        accumulatedText = accumulatedThinking;
+        placeholder.text = accumulatedText;
+        placeholder.thinking = null;
+        const el = getMsgElements();
+        if (el.thinkAcc) el.thinkAcc.style.display = 'none';
+        if (el.contentElem) el.contentElem.innerHTML = formatMarkdown(accumulatedText);
+      } else {
+        fallbackSimulate(query, placeholder, chat);
+        return;
+      }
+    }
+
+    placeholder.isThinking = false;
+    const finalEl = getMsgElements();
+    if (finalEl.thinkHeader) finalEl.thinkHeader.classList.remove('thinking-active');
+    if (finalEl.thinkIcon) finalEl.thinkIcon.classList.remove('fa-pulse');
+    if (finalEl.thinkLabel) finalEl.thinkLabel.innerText = 'Thinking Process';
+    if (!accumulatedThinking && finalEl.thinkAcc) finalEl.thinkAcc.style.display = 'none';
+
+    setGeneratingUI(false);
+    playSound('receive');
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      console.log('Stream cancelled by user');
+      setGeneratingUI(false);
+      placeholder.isThinking = false;
+      return;
+    }
+    console.warn('Live API request failed, falling back:', err);
+    fallbackSimulate(query, placeholder, chat);
+  }
+}
+
 function streamLocalText(fullResponse, placeholder) {
   const msgId = placeholder.id;
   let charIndex = 0;
@@ -917,7 +1297,8 @@ function streamLocalText(fullResponse, placeholder) {
 
   const contentElem = document.getElementById(`${msgId}-content`);
 
-  const streamInterval = setInterval(() => {
+  if (localStreamInterval) clearInterval(localStreamInterval);
+  localStreamInterval = setInterval(() => {
     charIndex += Math.min(22, fullResponse.length - charIndex);
     const slice = fullResponse.substring(0, charIndex);
     placeholder.text = slice;
@@ -928,15 +1309,16 @@ function streamLocalText(fullResponse, placeholder) {
     }
 
     if (charIndex >= fullResponse.length) {
-      clearInterval(streamInterval);
-      state.isGenerating = false;
+      clearInterval(localStreamInterval);
+      localStreamInterval = null;
+      setGeneratingUI(false);
       playSound('receive');
     }
   }, 25);
 }
 
 function fallbackSimulate(query, placeholder, chat) {
-  const lower = query.toLowerCase();
+  const lower = (query || '').toLowerCase();
   let fullResponse = '';
 
   if (lower.includes('code') || lower.includes('python') || lower.includes('javascript') || lower.includes('react') || lower.includes('function') || lower.includes('algorithm')) {
@@ -957,6 +1339,8 @@ if __name__ == "__main__":
 \`\`\`\n\n### Complexity & Key Details:\n* **Time Complexity:** O(n) single-pass iteration.\n* **Space Complexity:** O(n) auxiliary allocation.\n* **Design Pattern:** Functional filtering with defensive sanitization.`;
   } else if (lower.includes('compare') || lower.includes('difference') || lower.includes('vs')) {
     fullResponse = `Here is a detailed comparison breakdown:\n\n| Dimension | Option A | Option B |\n| :--- | :--- | :--- |\n| **Performance** | High-throughput, low latency | Moderate throughput, higher memory overhead |\n| **Scalability** | Distributed horizontal scaling | Vertical scaling with hardware bounds |\n| **Best Use Case** | Real-time interactive systems | Batch processing and cold storage |\n\nBoth approaches offer distinct tradeoffs depending on whether low latency or resource isolation is the core requirement.`;
+  } else if (lower.includes('pythagor') || lower.includes('math') || lower.includes('equation') || lower.includes('formula') || lower.includes('theorem')) {
+    fullResponse = `### The Pythagorean Theorem\n\nThe **Pythagorean theorem** is a fundamental principle in Euclidean geometry stating that in a right-angled triangle, the square of the length of the hypotenuse is equal to the sum of the squares of the lengths of the other two sides.\n\n#### Mathematical Expression:\n$$a^2 + b^2 = c^2$$\n\nWhere:\n* $a$ and $b$ are the perpendicular sides (legs).\n* $c$ is the hypotenuse ($c = \\sqrt{a^2 + b^2}$).\n\n#### Geometric Application:\nIn coordinate geometry, the Euclidean distance between two points $(x_1, y_1)$ and $(x_2, y_2)$ derives directly from this relation:\n$$d = \\sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2}$$\n\nThis theorem underpins vector norms, linear algebra transformations, and high-dimensional embeddings across modern artificial intelligence models.`;
   } else {
     fullResponse = `### In-Depth Analysis: ${query}\n\n1. **Core Concept:** Addressing this requires examining key architectural principles, system constraints, and expected outcomes.\n2. **Practical Strategy:** Implement an iterative approach, validating each component with test cases and telemetry monitoring.\n3. **Recommendation:** For optimal results, ensure modular separation of concerns and robust error-handling boundaries.`;
   }
