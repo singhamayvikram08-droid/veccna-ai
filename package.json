@@ -13,6 +13,7 @@
     "vite": "^6.0.0"
   },
   "dependencies": {
-    "@openrouter/sdk": "^1.5.112"
+    "@openrouter/sdk": "^1.5.112",
+    "marked": "^18.2.1"
   }
 }

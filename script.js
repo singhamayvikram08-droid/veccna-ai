@@ -1,9 +1,39 @@
+import { marked } from 'marked';
+
 /**
  * ==============================================================================
  * VECCNA AI — GEMINI-STYLE AI PLATFORM
  * Trained by: Amay, Anshuman, Ankit & Aaryan
  * ==============================================================================
  */
+
+// Configure marked renderer with dark slate styling and copy button
+const customMarkdownRenderer = new marked.Renderer();
+
+customMarkdownRenderer.code = function({ text, lang }) {
+  const language = (lang || 'code').trim();
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  return `
+    <div class="code-block-wrapper">
+      <div class="code-header">
+        <span>${language}</span>
+        <button class="copy-code-btn" onclick="copyCodeSnippet(this)">
+          <i class="far fa-copy"></i> Copy
+        </button>
+      </div>
+      <pre class="code-pre"><code class="language-${language}">${escaped}</code></pre>
+    </div>
+  `;
+};
+
+marked.setOptions({
+  renderer: customMarkdownRenderer,
+  gfm: true,
+  breaks: true
+});
 
 // --- Global Application State ---
 const savedUser = localStorage.getItem('veccna_user');
@@ -23,18 +53,26 @@ if (savedUser) {
 }
 
 const MODEL_MAPPING = {
-  'Veccna 2.5 Pro (Thinking)': 'nvidia/nemotron-3.5-lightning:free',
-  'Veccna 2.5 Flash': 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+  'Veccna 2.5 Pro (Thinking)': 'openrouter/free',
+  'Veccna 2.5 Flash': 'openrouter/free',
   'Veccna Deep Research': 'openrouter/free'
 };
 
-const DEFAULT_OPENROUTER_KEY = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_OPENROUTER_API_KEY) || '';
+const DEFAULT_OPENROUTER_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || '';
+
+function getActiveApiKey() {
+  const customKey = localStorage.getItem('veccna_openrouter_key');
+  if (customKey && customKey.trim().startsWith('sk-or-v1-')) {
+    return customKey.trim();
+  }
+  return DEFAULT_OPENROUTER_KEY;
+}
 
 const state = {
   user: initialUser,
   currentModel: 'Veccna 2.5 Pro (Thinking)',
   activeChatId: 'chat-1',
-  openRouterKey: localStorage.getItem('veccna_openrouter_key') || DEFAULT_OPENROUTER_KEY,
+  openRouterKey: getActiveApiKey(),
   deepThinkingEnabled: true,
   webSearchEnabled: true,
   soundEnabled: true,
@@ -159,61 +197,19 @@ const modelModal = document.getElementById('modelModal');
 function formatMarkdown(text) {
   if (!text) return '';
 
-  // Strip unsolicited generic greeting code snippets
+  // Clean out any stray canned greeting snippets if generated
   let cleanText = text
     .replace(/💡\s*Quick Example[\s\S]*?```[a-z]*\s*def greet[\s\S]*?```/gi, '')
     .replace(/```[a-z]*\s*def greet\(name\):[\s\S]*?```/gi, '')
     .replace(/def greet\(name\):[\s\S]*?print\(greet\([^)]*\)\)/gi, '')
     .replace(/💡\s*Quick Example/gi, '');
 
-  // Escape HTML entities to prevent raw injection
-  let escaped = cleanText
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-
-  // Code Blocks ```lang ... ```
-  escaped = escaped.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
-    const langDisplay = lang || 'code';
-    return `
-      <div class="code-block-wrapper">
-        <div class="code-header">
-          <span>${langDisplay}</span>
-          <button class="copy-code-btn" onclick="copyCodeSnippet(this)">
-            <i class="far fa-copy"></i> Copy
-          </button>
-        </div>
-        <pre class="code-pre"><code>${code.trim()}</code></pre>
-      </div>
-    `;
-  });
-
-  // Inline Code `code`
-  escaped = escaped.replace(/`([^`]+)`/g, '<code class="font-mono" style="background: rgba(148, 163, 184, 0.15); padding: 0.15rem 0.4rem; border-radius: 4px; color: #38bdf8;">$1</code>');
-
-  // Bold **text**
-  escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-
-  // Headers ###
-  escaped = escaped.replace(/^### (.*$)/gim, '<h3 style="font-size: 1.05rem; font-weight: 700; color: #ffffff; margin: 0.85rem 0 0.4rem;">$1</h3>');
-  escaped = escaped.replace(/^## (.*$)/gim, '<h2 style="font-size: 1.25rem; font-weight: 800; color: #ffffff; margin: 1rem 0 0.5rem;">$1</h2>');
-  escaped = escaped.replace(/^# (.*$)/gim, '<h1 style="font-size: 1.45rem; font-weight: 800; color: #ffffff; margin: 1.25rem 0 0.6rem;">$1</h1>');
-
-  // Unordered list items
-  escaped = escaped.replace(/^\s*[-*]\s+(.*$)/gim, '<li>$1</li>');
-  escaped = escaped.replace(/(<li>.*<\/li>)/s, '<ul style="padding-left: 1.25rem; margin: 0.5rem 0;">$1</ul>');
-
-  // Numbered list items
-  escaped = escaped.replace(/^\s*(\d+)\.\s+(.*$)/gim, '<li>$2</li>');
-
-  // Paragraph breaks
-  const paragraphs = escaped.split(/\n\n+/);
-  return paragraphs.map(p => {
-    if (p.startsWith('<div class="code-block-wrapper') || p.startsWith('<h1') || p.startsWith('<h2') || p.startsWith('<h3') || p.startsWith('<ul') || p.startsWith('<ol')) {
-      return p;
-    }
-    return `<p>${p.replace(/\n/g, '<br>')}</p>`;
-  }).join('');
+  try {
+    return marked.parse(cleanText);
+  } catch (e) {
+    console.error('Markdown parsing error:', e);
+    return cleanText;
+  }
 }
 
 window.copyCodeSnippet = function(button) {
@@ -528,36 +524,35 @@ function handleSendPrompt() {
   generateAiResponse(query, aiMessagePlaceholder, chat);
 }
 
+function isAskingAboutBotCreators(query) {
+  const q = query.toLowerCase().trim();
+  return (
+    /\b(who\s+(created|made|built|developed|trained|engineered)\s+(you|veccna))\b/i.test(q) ||
+    /\b(who\s+are\s+(your|the)\s+(creators|developers|founders|engineers|authors))\b/i.test(q) ||
+    /\b(your\s+(creators|founders|engineering team|developers))\b/i.test(q) ||
+    /\b(who\s+is\s+your\s+(creator|developer|author|maker))\b/i.test(q) ||
+    /\b(tell\s+me\s+about\s+(the\s+)?(creators|founders|team)\s+(of\s+veccna|behind\s+veccna))\b/i.test(q) ||
+    /\b(who\s+trained\s+veccna)\b/i.test(q)
+  );
+}
+
 async function generateAiResponse(query, placeholder, chat) {
-  const lower = query.toLowerCase();
-
-  // Rule: Give training credits ONLY IF ASKED
-  const isAskingAboutCreators = lower.includes('team') || 
-                                lower.includes('trained') || 
-                                lower.includes('who made') || 
-                                lower.includes('who created') || 
-                                lower.includes('who built') ||
-                                lower.includes('who are your creators') ||
-                                lower.includes('founders') || 
-                                lower.includes('creator') || 
-                                lower.includes('developer') || 
-                                lower.includes('author') ||
-                                lower.includes('amay') || 
-                                lower.includes('anshuman') || 
-                                lower.includes('ankit') || 
-                                lower.includes('aaryan');
-
-  if (isAskingAboutCreators) {
+  // Dual-Layer Attribution: Disclose training credits ONLY if explicitly asked about Veccna creators
+  if (isAskingAboutBotCreators(query)) {
     placeholder.thinking = state.deepThinkingEnabled ? 'Retrieving neural model lineage & engineering provenance records...' : null;
     const fullResponse = `**Veccna AI** was trained and engineered by the founding team:\n\n### 👥 Core Engineering Team:\n* **Amay Vikram Singh:** Founding Research & Neural Architecture Lead\n* **Anshuman:** Lead Distributed Systems & High-Velocity Telemetry Pipeline\n* **Ankit:** Lead Behavioral AI & Knowledge Graph Specialist\n* **Aaryan:** Lead Adversary Emulation & Autonomous Response Engine\n\n### ⚡ Foundation Specifications:\n* **Model Engine:** Veccna Synapse-X Transformer (17.4 Billion Parameters).\n* **Architecture:** Multi-Stage Attention with Low-Rank Adaptation & Direct Preference Optimization (DPO).\n* **Design Language:** Ergonomic Dark Slate (\`#09090B\`, \`#0F172A\`) to prevent ocular fatigue.`;
     streamLocalText(fullResponse, placeholder);
     return;
   }
 
-  const apiKey = state.openRouterKey || DEFAULT_OPENROUTER_KEY;
-  const modelId = MODEL_MAPPING[state.currentModel] || 'nvidia/nemotron-3.5-lightning:free';
+  let apiKey = state.openRouterKey || DEFAULT_OPENROUTER_KEY;
+  const requestedModel = MODEL_MAPPING[state.currentModel] || 'openrouter/free';
 
-  const systemPrompt = `You are Veccna AI, an advanced conversational and multimodal intelligence platform just like Google Gemini. When greeted or asked simple conversational questions, reply naturally, warmly, and concisely. NEVER output unsolicited generic code examples (such as def greet() or quick examples) or lists of capabilities unless explicitly requested to do so. Provide code blocks ONLY when the user explicitly asks for code, programming, or implementation details. If and ONLY if the user explicitly asks who created, built, trained, or engineered you, state that you were trained by Amay Vikram Singh, Anshuman, Ankit, and Aaryan. Otherwise, do NOT mention the training team unprompted.`;
+  const systemPrompt = `You are Veccna AI, an intelligent, helpful, and highly articulate generative AI assistant modeled after Google Gemini.
+You provide clear, comprehensive, well-structured, and insightful answers with markdown formatting (bullet points, bold text, code blocks with explanations, headers, and comparison tables) whenever appropriate.
+When greeted with simple conversational greetings (e.g., "hi", "hello", "hey"), reply warmly, naturally, and concisely without dumping capability lists or canned code snippets like "def greet()".
+For educational, conceptual, coding, architecture, and analytical queries, provide thorough, high-quality, step-by-step explanations, code examples with inline comments, and time/space complexity when relevant.
+Attribution Rule: If and ONLY if the user explicitly asks who created, built, trained, or engineered you, state that you were trained and developed by Amay Vikram Singh, Anshuman, Ankit, and Aaryan. Otherwise, do NOT mention the training team unprompted.`;
 
   const messagesPayload = [
     { role: 'system', content: systemPrompt }
@@ -603,28 +598,72 @@ async function generateAiResponse(query, placeholder, chat) {
     };
   }
 
-  try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': window.location.origin || 'http://localhost:3002',
-        'X-Title': 'Veccna AI'
-      },
-      body: JSON.stringify({
-        model: modelId,
-        messages: messagesPayload,
-        stream: true
-      })
-    });
+  // Multi-tier candidate models for zero downtime
+  const modelsToAttempt = Array.from(new Set([
+    requestedModel,
+    'openrouter/free',
+    'nvidia/nemotron-3.5-lightning:free',
+    'liquid/lfm-3-1.7b:free'
+  ]));
 
-    if (!response.ok) {
-      console.warn('OpenRouter status not OK:', response.status);
-      fallbackSimulate(query, placeholder, chat);
-      return;
+  let response = null;
+  for (const m of modelsToAttempt) {
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': window.location.origin || 'http://localhost:3002',
+          'X-Title': 'Veccna AI'
+        },
+        body: JSON.stringify({
+          model: m,
+          messages: messagesPayload,
+          stream: true
+        })
+      });
+
+      if (res.ok) {
+        response = res;
+        break;
+      } else if (res.status === 401 && apiKey !== DEFAULT_OPENROUTER_KEY && DEFAULT_OPENROUTER_KEY) {
+        console.warn('Custom API key unauthorized (401), falling back to default key...');
+        apiKey = DEFAULT_OPENROUTER_KEY;
+        state.openRouterKey = DEFAULT_OPENROUTER_KEY;
+        const retryRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': window.location.origin || 'http://localhost:3002',
+            'X-Title': 'Veccna AI'
+          },
+          body: JSON.stringify({
+            model: m,
+            messages: messagesPayload,
+            stream: true
+          })
+        });
+        if (retryRes.ok) {
+          response = retryRes;
+          break;
+        }
+      } else {
+        console.warn(`Model ${m} returned status ${res.status}, trying fallback model...`);
+      }
+    } catch (err) {
+      console.warn(`Model ${m} network error:`, err);
     }
+  }
 
+  if (!response || !response.ok) {
+    console.warn('All live API model attempts failed or offline, using intelligent synthesis.');
+    fallbackSimulate(query, placeholder, chat);
+    return;
+  }
+
+  try {
     const reader = response.body.getReader();
     const decoder = new TextDecoder('utf-8');
     let buffer = '';
@@ -637,6 +676,9 @@ async function generateAiResponse(query, placeholder, chat) {
 
       if (accumulatedThinking) {
         placeholder.thinking = accumulatedThinking;
+        if (el.thinkAcc && state.deepThinkingEnabled) {
+          el.thinkAcc.style.display = 'block';
+        }
         if (el.thinkContent) {
           el.thinkContent.innerText = accumulatedThinking;
         }
@@ -651,6 +693,10 @@ async function generateAiResponse(query, placeholder, chat) {
           if (el.thinkLabel) el.thinkLabel.innerText = 'Thinking Process';
           if (el.thinkHeader) el.thinkHeader.classList.remove('thinking-active');
           if (el.thinkIcon) el.thinkIcon.classList.remove('fa-pulse');
+        }
+        // If no reasoning tokens were generated at all, hide the empty thinking box
+        if (!accumulatedThinking && el.thinkAcc) {
+          el.thinkAcc.style.display = 'none';
         }
         placeholder.text = accumulatedText;
         if (el.contentElem) {
@@ -700,9 +746,19 @@ async function generateAiResponse(query, placeholder, chat) {
     // Final paint ensure
     applyTargetedUpdate();
 
+    // If content was empty but reasoning had text, promote reasoning to final content
     if (!accumulatedText.trim()) {
-      fallbackSimulate(query, placeholder, chat);
-      return;
+      if (accumulatedThinking.trim()) {
+        accumulatedText = accumulatedThinking;
+        placeholder.text = accumulatedText;
+        placeholder.thinking = null;
+        const el = getMsgElements();
+        if (el.thinkAcc) el.thinkAcc.style.display = 'none';
+        if (el.contentElem) el.contentElem.innerHTML = formatMarkdown(accumulatedText);
+      } else {
+        fallbackSimulate(query, placeholder, chat);
+        return;
+      }
     }
 
     placeholder.isThinking = false;
@@ -710,6 +766,7 @@ async function generateAiResponse(query, placeholder, chat) {
     if (finalEl.thinkHeader) finalEl.thinkHeader.classList.remove('thinking-active');
     if (finalEl.thinkIcon) finalEl.thinkIcon.classList.remove('fa-pulse');
     if (finalEl.thinkLabel) finalEl.thinkLabel.innerText = 'Thinking Process';
+    if (!accumulatedThinking && finalEl.thinkAcc) finalEl.thinkAcc.style.display = 'none';
 
     state.isGenerating = false;
     playSound('receive');
@@ -757,43 +814,26 @@ function fallbackSimulate(query, placeholder, chat) {
   const lower = query.toLowerCase();
   let fullResponse = '';
 
-  if (lower.includes('code') || lower.includes('python') || lower.includes('algorithm') || lower.includes('react') || lower.includes('function')) {
-    fullResponse = `Here is an optimized, production-grade implementation of an asynchronous multi-agent coordination pipeline written in Python:\n\n\`\`\`python
-import asyncio
-from typing import List, Dict, Any
+  if (lower.includes('code') || lower.includes('python') || lower.includes('javascript') || lower.includes('react') || lower.includes('function') || lower.includes('algorithm')) {
+    fullResponse = `Here is a clean, production-grade implementation with complete explanations:\n\n\`\`\`python
+def solution(data):
+    """
+    Processes and validates data with linear time complexity O(n).
+    """
+    if not data:
+        return None
+    return [item.strip() for item in data if item]
 
-class VeccnaAgent:
-    """Autonomous agent node in a distributed swarm."""
-    def __init__(self, name: str, role: str):
-        self.name = name
-        self.role = role
-
-    async def execute_task(self, prompt: str) -> Dict[str, Any]:
-        await asyncio.sleep(0.3)  # Simulated async computation
-        return {
-            "agent": self.name,
-            "status": "COMPLETED",
-            "model": "Veccna 2.5 Pro",
-            "output": f"Synthesized reasoning for: {prompt[:30]}..."
-        }
-
-async def main():
-    agents = [
-        VeccnaAgent("Architect", "Codebase Review"),
-        VeccnaAgent("Sentinel", "Security & Zero-Day Guard"),
-        VeccnaAgent("Optimizer", "Latency Reduction")
-    ]
-    results = await asyncio.gather(*(a.execute_task("Process multi-modal tensor") for a in agents))
-    for r in results:
-        print(f"[{r['agent']}] {r['status']}")
-
+# Example demonstration
 if __name__ == "__main__":
-    asyncio.run(main())
-\`\`\`\n\n### Key Architectural Features:\n1. **Zero-blocking concurrency** with Python's native \`asyncio\` event loop.\n2. **Typed interfaces** ensuring type safety and resilient inter-agent communication.\n3. **Scalable execution** supporting arbitrary swarm topologies.`;
-  } else if (lower.includes('compare') || lower.includes('gemini') || lower.includes('gpt')) {
-    fullResponse = `**Veccna AI** is built to deliver a seamless, high-speed generative experience just like Google Gemini, elevated by specialized domain intelligence:\n\n| Capability | Veccna AI Platform | Conventional AI Models |\n| :--- | :--- | :--- |\n| **Design Language** | Ergonomic Dark Slate (\`#09090B\`, \`#0F172A\`) | Harsh pure black (\`#000000\`) or generic light |\n| **Deep Reasoning** | Dynamic Thinking Process Accordion | Hidden or static text |\n| **Multimodal Uploads** | Images, PDFs, Code repositories, Audio | Limited text inputs |\n| **Neural Execution** | Native Live OpenRouter Streaming | Simulated or rigid APIs |\n\nHow else can I assist your workflow today?`;
+    test_input = ["  Veccna AI  ", "  Distributed Swarm ", ""]
+    output = solution(test_input)
+    print("Processed:", output)
+\`\`\`\n\n### Complexity & Key Details:\n* **Time Complexity:** O(n) single-pass iteration.\n* **Space Complexity:** O(n) auxiliary allocation.\n* **Design Pattern:** Functional filtering with defensive sanitization.`;
+  } else if (lower.includes('compare') || lower.includes('difference') || lower.includes('vs')) {
+    fullResponse = `Here is a detailed comparison breakdown:\n\n| Dimension | Option A | Option B |\n| :--- | :--- | :--- |\n| **Performance** | High-throughput, low latency | Moderate throughput, higher memory overhead |\n| **Scalability** | Distributed horizontal scaling | Vertical scaling with hardware bounds |\n| **Best Use Case** | Real-time interactive systems | Batch processing and cold storage |\n\nBoth approaches offer distinct tradeoffs depending on whether low latency or resource isolation is the core requirement.`;
   } else {
-    fullResponse = `I have processed your query with **${state.currentModel}**.\n\n### Cognitive Analysis & Summary:\n1. **Inference Execution:** Successfully analyzed domain constraints and context vectors across the current session.\n2. **High-Throughput Synthesis:** Applied multi-stage reasoning to synthesize actionable insights with precision.\n3. **Next Steps:** Would you like me to elaborate on specific architectural tradeoffs or generate complete runnable source code?`;
+    fullResponse = `### In-Depth Analysis: ${query}\n\n1. **Core Concept:** Addressing this requires examining key architectural principles, system constraints, and expected outcomes.\n2. **Practical Strategy:** Implement an iterative approach, validating each component with test cases and telemetry monitoring.\n3. **Recommendation:** For optimal results, ensure modular separation of concerns and robust error-handling boundaries.`;
   }
 
   streamLocalText(fullResponse, placeholder);
@@ -1136,10 +1176,17 @@ window.openSettingsModal = function() {
 
 window.saveApiKeyFromSettings = function() {
   const input = document.getElementById('openRouterApiKeyInput');
-  if (input && input.value.trim()) {
-    state.openRouterKey = input.value.trim();
-    localStorage.setItem('veccna_openrouter_key', state.openRouterKey);
-    showToast('OpenRouter API Key saved successfully!', 'success');
+  if (input) {
+    const val = input.value.trim();
+    if (val) {
+      state.openRouterKey = val;
+      localStorage.setItem('veccna_openrouter_key', state.openRouterKey);
+      showToast('OpenRouter API Key saved successfully!', 'success');
+    } else {
+      state.openRouterKey = DEFAULT_OPENROUTER_KEY;
+      localStorage.removeItem('veccna_openrouter_key');
+      showToast('Restored default OpenRouter key.', 'info');
+    }
     playSound('click');
   }
 };
